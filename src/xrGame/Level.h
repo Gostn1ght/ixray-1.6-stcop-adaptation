@@ -83,8 +83,6 @@ class CLevel:
 	public IGame_Level, 
 	public IPureClient
 {
-	u32 NextMonsterCountUpdate = 0;
-	u32 MonsterCountGeneration = u32(-1);
 	#include "Level_network_Demo.h"
 	void						ClearAllObjects			();
 private:
@@ -148,9 +146,6 @@ protected:
 	xr_deque<NET_Packet>		script_client_events;
 
 public:
-	u32 ReloadMonsterLogicOptions() override;
-	void SetMonsterLogicDraw(bool Enabled) override;
-
 #ifdef DEBUG
 	// level debugger
 	CLevelDebug					*m_level_debug;
@@ -445,10 +440,7 @@ protected:
 public:
 	virtual	u32				GetRealPing					() { return m_dwRealPing; };
 
-private:
-	bool WorldTeardown = false;
 public:
-	bool IsWorldTeardown() const { return WorldTeardown; }
 			void			remove_objects				();
 			virtual void	OnSessionTerminate		(const char* reason);
 			
