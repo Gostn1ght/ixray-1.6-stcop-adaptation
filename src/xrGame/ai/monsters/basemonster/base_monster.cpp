@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "ai/ExtendedEntityesLogic/EntryPoint.h"
 #include "base_monster.h"
 #include "../../../../xrPhysics/PhysicsShell.h"
 #include "../../../Hit.h"
@@ -376,6 +377,7 @@ void CBaseMonster::UpdateCL()
 
 	control().update_frame();
 
+	ExtendedEntityes::FrameUpdate(*this, Device.fTimeDelta);
 	m_pPhysics_support->in_UpdateCL();
 
 	if (OnClient() && g_pGamePersistent->GameType() == eGameIDFreeMP)
@@ -430,6 +432,7 @@ void CBaseMonster::shedule_Update(u32 dt)
 
 void CBaseMonster::Die(CObject* who)
 {
+	ExtendedEntityes::RecordDeath(*this, who);
 	SpatialComponent->type &= ~ESPATIAL_TYPE::MONSTER_ALIVE;
 	SpatialComponent->type |= ESPATIAL_TYPE::MONSTER_DEAD;
 
@@ -815,6 +818,7 @@ DLL_Pure *CBaseMonster::_construct	()
 
 void CBaseMonster::net_Relcase(CObject *O)
 {
+	ExtendedEntityes::RemoveObject(*this, O);
 	inherited::net_Relcase(O);
 	
 	if (OnServer())

@@ -1,0 +1,18 @@
+#pragma once
+#include "../../CoreComponent/CELComponentBase.h"
+#include "Behaviors/CELGroundBehaviorManager.h"
+
+class CELGround : public CELComponentBase
+{
+public:
+	CELGround(xr_unique_ptr<IELAdapter> OwnerAdapter, const SELPerceptionProfile& OwnerProfile);
+	~CELGround() override;
+	EELControl Update(float DeltaTime) override;
+	void Detach() override;
+	void FrameUpdate(float DeltaTime) override;
+
+protected:
+	virtual EELControl UpdateTarget(const SELObservation& Observation, float DeltaTime);
+	friend class CELGroundBehaviorManager;
+	CELGroundBehaviorManager BehaviorManager;
+};

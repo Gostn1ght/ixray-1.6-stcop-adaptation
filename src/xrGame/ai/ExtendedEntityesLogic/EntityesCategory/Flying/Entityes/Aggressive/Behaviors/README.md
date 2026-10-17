@@ -1,12 +1,11 @@
-# EntityesCategory/Flying/Entityes/Aggressive/Behaviors
+# Flying/Entityes/Aggressive/Behaviors
 
-Боевые воздушные схемы: полёт, атака, восстановление и отдых. Фазы захода, пикирования и выхода остаются внутри схемы атаки, без класса на каждый шаг.
+Схемы реализуют IELBehavior через CELFlyingBehaviorBase. Все подключения проходят через менеджер категории.
 
-Планируемые файлы:
+- CELFlyingAttackBehavior — заход, пикирование, контакт и выход на новый вираж.
+- CELFlyingRecoveryBehavior — конечные попытки восходящего выхода; завершение подтверждается фактическим пролётом.
+- CELFlyingRestBehavior — проверка площадки, заход, касание, конечный отдых и повторная проверка опоры.
 
-- `CELFlyingCruiseBehavior.h/.cpp` — наследует CELFlyingBehaviorBase; [ENTITY].
-- `CELFlyingAttackBehavior.h/.cpp` — наследует CELFlyingBehaviorBase; [ENTITY].
-- `CELFlyingRecoveryBehavior.h/.cpp` — наследует CELFlyingBehaviorBase; [ENTITY].
-- `CELFlyingRestBehavior.h/.cpp` — наследует CELFlyingBehaviorBase; [ENTITY].
+CELFlyingAttackBase выбирает модули через менеджер; атака сообщает отказ, а не запускает скрытое бесконечное восстановление. Отдых начинается после настроенного времени фактического полёта без противника, прерывается новой целью/испугом. flight_rest_interval = 0 отключает его. Общая схема CELFlyingCruiseBehavior расположена в Flying/Behaviors и используется также неатакующими сущностями.
 
-Статус: проектирование; C++-файлы пока только запланированы. Контракты и правила: [план архитектуры](../../../../../../../../../doc/extended-entityes-architecture.md).
+Статус и оставшиеся проверки — в doc/extended-entityes-architecture.md. Сборку выполняет пользователь.

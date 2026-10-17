@@ -206,6 +206,11 @@ if (IXRAY_UNITYBUILD)
 	endif()
 	set_source_files_properties(../xrServerEntities/script_engine_export.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 	set_source_files_properties(CActorAuraPostEffectsBalancer.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+
+	# Keep the extension out of vanilla unity batches and compile its sources independently.
+	set(XGM_EXTENDED_ENTITYES_SOURCES ${XGM_SRC_FILES})
+	list(FILTER XGM_EXTENDED_ENTITYES_SOURCES INCLUDE REGEX "/ai/ExtendedEntityesLogic/.*[.]cpp$")
+	set_source_files_properties(${XGM_EXTENDED_ENTITYES_SOURCES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
 
 if (WIN32 AND IXRAY_UNITYBUILD AND IXRAY_CROSS_COMPILATION)

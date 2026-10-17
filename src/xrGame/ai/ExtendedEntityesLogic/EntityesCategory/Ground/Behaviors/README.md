@@ -2,9 +2,11 @@
 
 Общие приёмы наземных схем и единственный менеджер их переключений. Все схемы соблюдают IELBehavior: Enter, Update, Validate, Recover, Exit.
 
-Планируемые файлы:
+Текущие файлы:
 
 - `CELGroundBehaviorBase.h/.cpp` — реализует IELBehavior; [ENTITY].
-- `CELGroundBehaviorManager.h/.cpp` — выбор и переключение схем; [ENTITY].
+- `CELGroundReactionBehavior.h/.cpp` — осмотр шума и бегство; контракт IELBehavior через базу; [ENTITY].
 
-Статус: проектирование; C++-файлы пока только запланированы. Контракты и правила: [план архитектуры](../../../../../../../doc/extended-entityes-architecture.md).
+Статус: перенос в процессе, сборку выполняет пользователь. Готовность и оставшиеся механики: [архитектура](../../../../../../../doc/extended-entityes-architecture.md).
+
+`CELGroundBehaviorManager` выбирает общие реакции, выход из известных опасных областей и исследование тела; атакующий подкласс предоставляет свою цель через категорийный hook. Общие Enter/Exit и вызов Validate/Recover выполняет `CELSharedBehaviorManager`. Ванильные классы монстров не содержат эти переключения.

@@ -1,13 +1,11 @@
-# EntityesCategory/Flying/Entityes/Aggressive
+# Flying/Entityes/Aggressive
 
-Общая реализация боевых летунов: заход, контакт и выход на новый вираж. Наземное перемещение — согласованный режим той же сущности, с приоритетом полёта.
+Атакующие воздушные сущности. Способность атаковать не привязана к ванильному combat manager.
 
-Планируемые файлы:
+- CELFlyingAttackBase — наследует CELFlying; выбирает атаку, восстановление и отдых через менеджер категории.
+- CELFlyingAttack — проверяет близкий контакт, препятствие до цели и выдаёт штатный урон.
+- CELFlyingAttackAnimation — выбирает настроенные циклы полёта, пикирования и отдыха.
+- Behaviors — отдельные согласованные схемы.
+- Entityes — финальные игровые типы на CELFlyingEntityBase/CBaseMonster.
 
-- `CELFlyingAttackBase.h/.cpp` — наследует CELFlying; [ENTITY].
-- `CELFlyingAttackAnimation.h/.cpp` — [ENTITY].
-- `CELFlyingAttack.h/.cpp` — проверка контакта и урон; [ENTITY].
-
-Подкаталоги: `Behaviors/`, `Entityes/`.
-
-Статус: проектирование; C++-файлы пока только запланированы. Контракты и правила: [план архитектуры](../../../../../../../../doc/extended-entityes-architecture.md).
+Режим полёта приоритетен; отдых на земле требует проверенной опоры. Специальный цикл атаки необязателен, по умолчанию используется flight_animation. Наличие файла не подтверждает игровую проверку: состояние переноса описано в doc/extended-entityes-architecture.md.

@@ -1,0 +1,71 @@
+#include "stdafx.h"
+#include <cmath>
+#include "ai/ExtendedEntityesLogic/EntityesCategory/Ground/Entityes/Aggressive/Behaviors/CELGroundSearchBehavior.h"
+#include "ai/ExtendedEntityesLogic/Interfaces/IELAdapter.h"
+#include "ai/monsters/basemonster/base_monster.h"
+#include "ai_space.h"
+#include "level_graph.h"
+
+// Связывает поиск противника у последней известной позиции с необходимыми службами и состоянием владельца.
+CELGroundSearchBehavior::CELGroundSearchBehavior(IELAdapter& OwnerAdapter, const SELPerceptionProfile& OwnerProfile) : CELGroundBehaviorBase(OwnerAdapter, OwnerProfile), Inspection(OwnerAdapter.Monster()) {}
+
+// Завершает активную схему и освобождает временные заявки.
+void CELGroundSearchBehavior::Exit()
+{
+	Inspection.Clear();
+	CELGroundBehaviorBase::Exit();
+}
+
+// Подготавливает схему к запуску и сбрасывает состояние предыдущего выполнения.
+void CELGroundSearchBehavior::Enter()
+{
+	CELGroundBehaviorBase::Enter();
+	SearchUntil = Device.dwTimeGlobal + Random.randI(Profile.SearchMin, Profile.SearchMax + 1);
+	NextPoint = 0;
+	SearchPhase = 0;
+}
+
+// Обновляет поиск противника у последней известной позиции и обрабатывает текущий результат выполнения.
+void CELGroundSearchBehavior::Update(float DeltaTime)
+{
+	if (s32(Device.dwTimeGlobal - SearchUntil) >= 0)
+	{
+		Movement.Stop();
+		Validation = {EELBehaviorState::Completed, "Search finished"};
+		return;
+	}
+	if (Inspection.Update(Profile.CanInspect))
+	{
+		Movement.Stop();
+		ProgressTime = Device.dwTimeGlobal;
+		HasMoveCommand = false;
+		Validation = {EELBehaviorState::Running, "Inspecting trail"};
+		return;
+	}
+	if (SearchPhase == 0 || (Device.dwTimeGlobal >= NextPoint && Adapter.Monster().Position().distance_to_sqr(SearchPosition) < 2.25f))
+	{
+		Fvector TrailDirection = Adapter.Monster().XFORM().k;
+		if (Observation.Trail.size() >= 2)
+		{
+			TrailDirection.sub(Observation.Trail.back(), Observation.Trail.front()).normalize_safe();
+		}
+		float TrailHeading;
+		float TrailPitch;
+		TrailDirection.getHP(TrailHeading, TrailPitch);
+		const float Angle = -TrailHeading + (float(SearchPhase % 5) / 4.f - .5f) * deg2rad(Profile.SearchAngle);
+		SearchPosition = Observation.Position;
+		SearchPosition.x += std::sin(Angle) * Profile.SearchRadius;
+		SearchPosition.z += std::cos(Angle) * Profile.SearchRadius;
+		SearchVertex = ai().level_graph().vertex_id(SearchPosition);
+		Navigation.Reset();
+		Route = SELNavigationResult();
+		RouteCursor = 0;
+		NextPoint = Device.dwTimeGlobal + Random.randI(1500u, 3001u);
+		++SearchPhase;
+	}
+	Validation = {EELBehaviorState::Running, "Search around point"};
+	if (!Move(SearchPosition, SearchVertex, false))
+	{
+		Validation = {EELBehaviorState::Blocked, "Search point blocked"};
+	}
+}

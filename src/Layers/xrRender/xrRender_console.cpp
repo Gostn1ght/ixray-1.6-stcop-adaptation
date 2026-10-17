@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "xrRender_console.h"
 #include "dxRenderDeviceRender.h"
+#include "../../xrGame/ai/ExtendedEntityesLogic/Debug/DebugCommands.h"
 
 bool UseWeaponRainDrops = true;
 
@@ -827,6 +828,8 @@ extern Fvector3 ps_ssfx_volumetric;
 //-----------------------------------------------------------------------
 RENDER_API void		xrRender_initconsole	()
 {
+	CELSharedDebugCommands::Register();
+
 	CMD3(CCC_Preset,	"_preset",				&ps_Preset,	qpreset_token	);
 
 	CMD4(CCC_Integer,	"rs_skeleton_update",	&psSkeletonUpdate,	2,		128	);

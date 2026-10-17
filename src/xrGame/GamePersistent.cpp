@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "ai/ExtendedEntityesLogic/EntryPoint.h"
 #include "pch_script.h"
 #include "GamePersistent.h"
 #include "ImUtils/ImUtils.h"
@@ -989,6 +990,7 @@ void CGamePersistent::OnRenderPPUI_main()
 	{
 		Level().BulletManager().Render();
 
+		ExtendedEntityes::Draw();
 		HUD().draw_prims();
 #ifdef DEBUG_DRAW
 		RenderAIGridEditorWorld();

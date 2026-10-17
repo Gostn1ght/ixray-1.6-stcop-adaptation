@@ -2,13 +2,13 @@
 
 Единые контракты подключения категорий и их внутренних механизмов. Здесь объявляются интерфейсы и необходимые компактные типы результатов; алгоритмов и хранилищ здесь нет.
 
-Планируемые файлы:
+Текущие файлы:
 
-- `IELLogic.h` — интерфейс логики; CELComponentBase и его наследники категорий.
-- `IELBehavior.h` — интерфейс схем; базы поведений категорий и их наследники.
-- `IELNavigation.h` — интерфейс навигации; CELNavigationBase и его наследники.
-- `IELMovement.h` — интерфейс движения; CELGroundMovement, CELFlyingMovement.
-- `IELBudget.h` — интерфейс бюджета; CELSharedPerceptionBudget, CELSharedNavigationBudget.
 - `IELAdapter.h` — интерфейс адаптера; CELBaseAdapter и его наследники категорий.
+- `IELBehavior.h` — интерфейс схем; базы поведений категорий и их наследники.
+- `IELBudget.h` — интерфейс бюджета; CELSharedPerceptionBudget, CELSharedNavigationBudget.
+- `IELLogic.h` — интерфейс логики; CELComponentBase и его наследники категорий.
+- `IELMovement.h` — интерфейс движения; CELGroundMovement, CELFlyingMovement.
+- `IELNavigation.h` — интерфейс навигации; CELNavigationBase и его наследники.
 
-Статус: проектирование; C++-файлы пока только запланированы. Контракты и правила: [план архитектуры](../../../../../doc/extended-entityes-architecture.md).
+Статус: перенос в процессе, сборку выполняет пользователь. Готовность и оставшиеся механики: [архитектура](../../../../../doc/extended-entityes-architecture.md).

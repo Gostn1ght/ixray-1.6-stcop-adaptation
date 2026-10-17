@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #include "StdAfx.h"
+#include "ai/ExtendedEntityesLogic/EntryPoint.h"
 #include "pch_script.h"
 #include "base_monster.h"
 #include "../../../Actor.h"
@@ -37,6 +38,7 @@ void CBaseMonster::feel_sound_new(CObject* who, int eType, CSound_UserDataPtr us
 	if (this == who)	return;
 
 	PROF_EVENT("CBaseMonster::feel_sound_new");
+	ExtendedEntityes::Hear(*this, who, u32(eType), Position, power);
 
 	if (user_data)
 		user_data->accept	(sound_user_data_visitor());
@@ -409,3 +411,8 @@ void CBaseMonster::critical_wounded_state_start()
 }
 
 
+
+float CBaseMonster::feel_vision_mtl_transp(CObject* Object, u32 ElementIdentifier)
+{
+	return ExtendedEntityes::VisionTransparency(*this, Object, ElementIdentifier);
+}
