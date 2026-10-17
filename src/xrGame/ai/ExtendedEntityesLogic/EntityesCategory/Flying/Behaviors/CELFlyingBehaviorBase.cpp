@@ -53,6 +53,7 @@ bool CELFlyingBehaviorBase::RequestCurve()
 	Request.StartDirection.normalize_safe();
 	Request.GoalDirection.normalize_safe();
 	Request.CurveDistance = std::max(Settings.CurveMinimum, std::min(Settings.CurveMaximum, Request.StartPosition.distance_to(Request.GoalPosition) * Settings.CurveRatio));
+	ConfigureCurveRequest(Request);
 	RequestedAt = Device.dwTimeGlobal;
 	return Navigation.Submit(std::move(Request));
 }
@@ -71,12 +72,12 @@ void CELFlyingBehaviorBase::Update(float DeltaTime)
 	}
 	if (Navigation.WasBlocked())
 	{
-		Validation = {EELBehaviorState::Blocked, "Flight corridor blocked"};
+		Validation = {EELBehaviorState::Blocked, "Воздушный коридор перекрыт"};
 		RetryAfter = Device.dwTimeGlobal + Settings.RouteRetryDelay;
 	}
 	else
 	{
-		Validation = {Movement.HasRoute() ? EELBehaviorState::Running : EELBehaviorState::WaitingForResult, Movement.HasRoute() ? "Flying" : Navigation.Status()};
+		Validation = {Movement.HasRoute() ? EELBehaviorState::Running : EELBehaviorState::WaitingForResult, Movement.HasRoute() ? "Полёт" : Navigation.Status()};
 	}
 }
 
@@ -97,19 +98,19 @@ SELBehaviorValidation CELFlyingBehaviorBase::Validate() const
 {
 	if (!Adapter.Monster().g_Alive())
 	{
-		return {EELBehaviorState::InvalidTarget, "Owner dead"};
+		return {EELBehaviorState::InvalidTarget, "Существо погибло"};
 	}
 	if (Movement.WasBlocked())
 	{
-		return {EELBehaviorState::Blocked, "Dynamic obstacle ahead"};
+		return {EELBehaviorState::Blocked, "Впереди подвижное препятствие"};
 	}
 	if (Movement.HasRoute() && Device.dwTimeGlobal - ProgressTime > Settings.ProgressTimeout)
 	{
-		return {EELBehaviorState::NoProgress, "Flight stalled"};
+		return {EELBehaviorState::NoProgress, "Нет продвижения в полёте"};
 	}
 	if (!Movement.HasRoute() && Device.dwTimeGlobal - ProgressTime > Settings.RouteWaitTimeout)
 	{
-		return {EELBehaviorState::NoProgress, "Flight route deadline"};
+		return {EELBehaviorState::NoProgress, "Истёк срок полётного маршрута"};
 	}
 	return Validation;
 }
@@ -181,6 +182,13 @@ void CELFlyingBehaviorBase::ActivatePreparedRoute()
 	}
 	if (!Movement.HasRoute() && HasPreparedRoute)
 	{
+		if (!CanActivatePreparedRoute())
+		{
+			HasPreparedRoute = false;
+			PreparedRoute = SELNavigationResult();
+			RetryAfter = 0;
+			return;
+		}
 		Movement.SetRoute(std::move(PreparedRoute));
 		HasPreparedRoute = false;
 		if (!IsRecovering)

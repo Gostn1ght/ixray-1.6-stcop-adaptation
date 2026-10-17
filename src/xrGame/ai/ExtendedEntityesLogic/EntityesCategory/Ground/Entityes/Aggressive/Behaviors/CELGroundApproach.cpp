@@ -115,7 +115,7 @@ void CELGroundApproach::Select(IELAdapter& Adapter, const SELPerceptionProfile& 
 // Возвращает короткое имя текущей стратегии для отладки.
 const char* CELGroundApproach::Description() const
 {
-	static const char* Names[] = {"Direct approach", "Flank", "Wide arc", "Cautious approach", "Lunge reposition", "Charge", "Encircle", "Pressure arc", "Retreat"};
+	static const char* Names[] = {"Прямой подход", "Обход с фланга", "Широкая дуга", "Осторожный подход", "Позиция для прыжка", "Рывок", "Окружение", "Дуга сближения", "Отступление"};
 	static_assert(std::size(Names) == u32(EELApproachStrategy::Count));
 	return Names[u32(Strategy)];
 }

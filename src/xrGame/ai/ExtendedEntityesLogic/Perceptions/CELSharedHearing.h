@@ -46,6 +46,8 @@ struct SELNoiseAttention
 	EELSoundKind Kind = EELSoundKind::Native;
 	u32 LastEvent = 0;
 	u32 LastDecay = 0;
+	Fvector Position = {0.f, 0.f, 0.f};
+	EELNoiseType NoiseType = EELNoiseType::Other;
 	float Interest = 0.f;
 	float Fear = 0.f;
 };
@@ -55,8 +57,12 @@ class CELSharedHearing
 public:
 	static EELNoiseType Classify(const SELSoundEvent& Event);
 	static float HearingRadius(const SELSoundEvent& Event, const SELPerceptionProfile& Profile);
-	bool Hear(const SELSoundEvent& Event, const Fvector& ListenerPosition, const SELPerceptionProfile& Profile);
+	bool Hear(const SELSoundEvent& Event, const Fvector& ListenerPosition, const SELPerceptionProfile& Profile, u16 ListenerIdentifier);
+	void PublishDebug(const Fvector& ListenerPosition, const SELPerceptionProfile& Profile, u16 ListenerIdentifier) const;
 	void Clear();
+	void RemoveObject(u16 SourceIdentifier);
+	bool IsReactingTo(u16 SourceIdentifier) const;
+	void SetSource(u16 SourceIdentifier) { AttentionSource = SourceIdentifier; }
 	Fvector AttentionPosition = {0.f, 0.f, 0.f};
 	u32 InvestigateUntil = 0;
 	u32 PanicUntil = 0;
@@ -64,4 +70,6 @@ public:
 private:
 	xr_vector<SELNoiseAttention> Attention;
 	u32 NextReaction = 0;
+	u16 AttentionSource = u16(-1);
+	EELNoiseType AttentionNoiseType = EELNoiseType::Other;
 };

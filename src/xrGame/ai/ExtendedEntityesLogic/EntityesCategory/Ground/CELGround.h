@@ -9,6 +9,8 @@ public:
 	~CELGround() override;
 	EELControl Update(float DeltaTime) override;
 	void Detach() override;
+	void ForgetTarget(u16 ObjectIdentifier) override;
+	void RemoveObject(u16 ObjectIdentifier) override;
 	void FrameUpdate(float DeltaTime) override;
 
 protected:

@@ -4,6 +4,8 @@
 
 namespace ExtendedEntityesProfiles
 {
+const char* const NoiseNames[] = {"shot", "explosion", "actor_steps", "monster_steps", "jump", "melee", "attack", "injury", "death", "bullet_hit", "breaking", "collision", "talking", "eating", "idle", "ambient", "pickup", "drop", "hide", "take", "use", "empty_click", "reload", "other"};
+
 // Читает числовой параметр, заменяет недопустимое значение и ограничивает диапазон.
 float Number(const CInifile* SystemSettings, const char* Section, const char* LocalKey, const char* SharedKey, float DefaultValue, float Minimum, float Maximum)
 {
@@ -90,8 +92,7 @@ u32 ReadNoiseTypes(const CInifile* SystemSettings, const char* Section, const ch
 	{
 		return 0;
 	}
-	const char* TypeNames[] = {"shot", "explosion", "actor_steps", "monster_steps", "jump", "melee", "attack", "injury", "death", "bullet_hit", "breaking", "collision", "talking", "eating", "idle", "ambient", "pickup", "drop", "hide", "take", "use", "empty_click", "reload", "other"};
-	static_assert(sizeof(TypeNames) / sizeof(TypeNames[0]) == u32(EELNoiseType::Count));
+	static_assert(sizeof(ExtendedEntityesProfiles::NoiseNames) / sizeof(ExtendedEntityesProfiles::NoiseNames[0]) == u32(EELNoiseType::Count));
 	u32 Result = 0;
 	u32 TypeIndex;
 	int TokenIndex;
@@ -108,7 +109,7 @@ u32 ReadNoiseTypes(const CInifile* SystemSettings, const char* Section, const ch
 		WasFound = false;
 		for (TypeIndex = 0; TypeIndex < u32(EELNoiseType::Count); ++TypeIndex)
 		{
-			if (TypeName == TypeNames[TypeIndex])
+			if (TypeName == NoiseNames[TypeIndex])
 			{
 				Result |= 1u << TypeIndex;
 				WasFound = true;
@@ -117,7 +118,7 @@ u32 ReadNoiseTypes(const CInifile* SystemSettings, const char* Section, const ch
 		}
 		if (!WasFound)
 		{
-			Msg("! ExtendedEntityesLogic: [%s] %s: unknown noise type '%s'", Section, LocalKey, TypeName.c_str());
+			Msg("! ExtendedEntityesLogic: [%s] %s: неизвестный тип шума '%s'", Section, LocalKey, TypeName.c_str());
 		}
 	}
 	return Result;
@@ -259,7 +260,7 @@ void ReadStrategies(SELPerceptionProfile& Result, const char* Section)
 		}
 		if (!HasStrategy)
 		{
-			Msg("! [ExtendedEntityesLogic] Unknown approach strategy '%s' in '%s'", StrategyName, Section);
+			Msg("! [ExtendedEntityesLogic] Неизвестная стратегия подхода '%s' в '%s'", StrategyName, Section);
 		}
 	}
 	if (!Result.Strategies)
@@ -341,4 +342,12 @@ SELPerceptionProfile CELSharedPerceptionProfiles::Read(const char* Section, cons
 	ExtendedEntityesProfiles::ReadDeaths(Result, SystemSettings, Section);
 	ExtendedEntityesProfiles::ReadStrategies(Result, Section);
 	return Result;
+}
+
+// Возвращает русское название типа шума для отладки; ключи LTX не изменяются.
+const char* CELSharedPerceptionProfiles::NoiseName(EELNoiseType Type)
+{
+	static const char* Names[] = {"Выстрел", "Взрыв", "Шаги игрока", "Шаги существа", "Прыжок", "Удар вблизи", "Атака", "Ранение", "Смерть", "Попадание пули", "Разрушение", "Столкновение", "Голос", "Кормление", "Покой", "Окружение", "Подбор", "Бросок предмета", "Убирание", "Доставание", "Использование", "Пустой щелчок", "Перезарядка", "Прочий шум"};
+	static_assert(sizeof(Names) / sizeof(Names[0]) == u32(EELNoiseType::Count));
+	return u32(Type) < u32(EELNoiseType::Count) ? Names[u32(Type)] : "Прочий шум";
 }

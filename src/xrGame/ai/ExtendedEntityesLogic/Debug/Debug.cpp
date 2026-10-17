@@ -2,6 +2,12 @@
 #include "ai/ExtendedEntityesLogic/Debug/Debug.h"
 #include "ai/ExtendedEntityesLogic/Debug/DebugDrawHud.h"
 #include "ai/ExtendedEntityesLogic/Debug/DebugDrawWorld.h"
+#include <algorithm>
+
+namespace ExtendedEntityesDebugTiming
+{
+thread_local CELSharedDebugScope* CurrentScope = nullptr;
+}
 
 // Возвращает единственный общий экземпляр службы.
 CELSharedDebug& CELSharedDebug::Instance()
@@ -15,6 +21,10 @@ void CELSharedDebug::SetDrawEnabled(bool IsEnabled)
 {
 	xrCriticalSectionGuard Guard(QueueLock);
 	HasDraw = IsEnabled;
+	if (!HasDraw)
+	{
+		Events.clear();
+	}
 	if (!HasDraw && !HasStats)
 	{
 		Records.clear();
@@ -25,6 +35,16 @@ void CELSharedDebug::SetDrawEnabled(bool IsEnabled)
 void CELSharedDebug::SetStatsEnabled(bool IsEnabled)
 {
 	xrCriticalSectionGuard Guard(QueueLock);
+	if (HasStats != IsEnabled)
+	{
+		TimingStartedAt = Device.dwFrame;
+		Performance = SELDebugPerformance();
+		u32 FrameIndex;
+		for (FrameIndex = 0; FrameIndex < TimingFrameCount; ++FrameIndex)
+		{
+			Timings[FrameIndex] = SFrameTiming();
+		}
+	}
 	HasStats = IsEnabled;
 	if (!HasDraw && !HasStats)
 	{
@@ -80,11 +100,15 @@ void CELSharedDebug::Draw()
 	}
 	if (HasDraw)
 	{
-		CELSharedDebugDrawWorld::Draw(Records);
+		Events.erase(std::remove_if(Events.begin(), Events.end(), [](const SELDebugEvent& Event)
+									{ return s32(Device.dwTimeGlobal - Event.ExpiresAt) >= 0; }),
+					 Events.end());
+		CELSharedDebugDrawWorld::Draw(Records, Events);
 	}
 	if (HasStats)
 	{
-		CELSharedDebugDrawHud::Draw(Records, Frame);
+		UpdatePerformance();
+		CELSharedDebugDrawHud::Draw(Records, Frame, Performance);
 	}
 }
 
@@ -93,7 +117,15 @@ void CELSharedDebug::Clear()
 {
 	xrCriticalSectionGuard Guard(QueueLock);
 	Records.clear();
+	Events.clear();
 	Frame = SELDebugFrame();
+	Performance = SELDebugPerformance();
+	TimingStartedAt = Device.dwFrame;
+	u32 FrameIndex;
+	for (FrameIndex = 0; FrameIndex < TimingFrameCount; ++FrameIndex)
+	{
+		Timings[FrameIndex] = SFrameTiming();
+	}
 }
 
 // Публикует снимок общей статистики для последующей отрисовки.
@@ -105,4 +137,150 @@ void CELSharedDebug::PublishFrame(const SELDebugFrame& Snapshot)
 	}
 	xrCriticalSectionGuard Guard(QueueLock);
 	Frame = Snapshot;
+}
+
+// Проверяет режимы без блокировки и выделения временных записей.
+bool CELSharedDebug::IsDrawEnabled() const
+{
+	return HasDraw;
+}
+// Проверяет включение замеров без обращения к очереди.
+bool CELSharedDebug::IsStatsEnabled() const
+{
+	return HasStats;
+}
+
+// Обновляет копию события; сроки хранения и лимит очереди принадлежат только отладчику.
+void CELSharedDebug::PublishEvent(SELDebugEvent Event, u32 Lifetime)
+{
+	if (!HasDraw)
+	{
+		return;
+	}
+	xrCriticalSectionGuard Guard(QueueLock);
+	if (!HasDraw)
+	{
+		return;
+	}
+	Event.ExpiresAt = Device.dwTimeGlobal + Lifetime;
+	xr_vector<SELDebugEvent>::iterator Iterator;
+	for (Iterator = Events.begin(); Iterator != Events.end(); ++Iterator)
+	{
+		if (Iterator->Kind == Event.Kind && Iterator->OwnerIdentifier == Event.OwnerIdentifier && Iterator->TargetIdentifier == Event.TargetIdentifier)
+		{
+			*Iterator = std::move(Event);
+			return;
+		}
+	}
+	if (Events.size() >= 512)
+	{
+		Events.erase(Events.begin());
+	}
+	Events.push_back(std::move(Event));
+}
+
+// Складывает исключительное время вызовов в общий кадр, включая результаты рабочего потока.
+void CELSharedDebug::RecordTiming(u32 FrameIdentifier, EELDebugGroup Group, EELDebugStage Stage, u64 Microseconds)
+{
+	if (!HasStats)
+	{
+		return;
+	}
+	xrCriticalSectionGuard Guard(QueueLock);
+	if (!HasStats || s32(FrameIdentifier - TimingStartedAt) < 0)
+	{
+		return;
+	}
+	SFrameTiming& Sample = Timings[FrameIdentifier % TimingFrameCount];
+	if (Sample.FrameIdentifier != FrameIdentifier)
+	{
+		Sample = SFrameTiming();
+		Sample.FrameIdentifier = FrameIdentifier;
+	}
+	Sample.Microseconds[u32(Group)][u32(Stage)] += Microseconds;
+}
+
+// Считает среднее и пик суммы затрат за кадр, включая кадры без вызовов.
+void CELSharedDebug::UpdatePerformance()
+{
+	Performance = SELDebugPerformance();
+	if (TimingStartedAt == u32(-1) || Device.dwFrame - TimingStartedAt < 3)
+	{
+		return;
+	}
+	const u32 LastFrame = Device.dwFrame - 2;
+	const u32 FrameCount = std::min(TimingFrameCount - 2, LastFrame - TimingStartedAt + 1);
+	u32 FrameOffset;
+	u32 GroupIndex;
+	u32 StageIndex;
+	float GroupMilliseconds;
+	float TotalMilliseconds;
+	float WorkerMilliseconds;
+	const SFrameTiming* Sample;
+	for (FrameOffset = 0; FrameOffset < FrameCount; ++FrameOffset)
+	{
+		Sample = &Timings[(LastFrame - FrameOffset) % TimingFrameCount];
+		if (Sample->FrameIdentifier != LastFrame - FrameOffset)
+		{
+			continue;
+		}
+		TotalMilliseconds = 0.f;
+		WorkerMilliseconds = 0.f;
+		for (GroupIndex = 0; GroupIndex < u32(EELDebugGroup::Count); ++GroupIndex)
+		{
+			GroupMilliseconds = 0.f;
+			for (StageIndex = 0; StageIndex < u32(EELDebugStage::Count); ++StageIndex)
+			{
+				GroupMilliseconds += float(Sample->Microseconds[GroupIndex][StageIndex]) * .001f;
+			}
+			Performance.Groups[GroupIndex].AverageMilliseconds += GroupMilliseconds / float(FrameCount);
+			Performance.Groups[GroupIndex].PeakMilliseconds = std::max(Performance.Groups[GroupIndex].PeakMilliseconds, GroupMilliseconds);
+			TotalMilliseconds += GroupMilliseconds;
+			WorkerMilliseconds += float(Sample->Microseconds[GroupIndex][u32(EELDebugStage::Worker)]) * .001f;
+		}
+		Performance.Total.AverageMilliseconds += TotalMilliseconds / float(FrameCount);
+		Performance.Total.PeakMilliseconds = std::max(Performance.Total.PeakMilliseconds, TotalMilliseconds);
+		Performance.Main.AverageMilliseconds += (TotalMilliseconds - WorkerMilliseconds) / float(FrameCount);
+		Performance.Main.PeakMilliseconds = std::max(Performance.Main.PeakMilliseconds, TotalMilliseconds - WorkerMilliseconds);
+		Performance.Worker.AverageMilliseconds += WorkerMilliseconds / float(FrameCount);
+		Performance.Worker.PeakMilliseconds = std::max(Performance.Worker.PeakMilliseconds, WorkerMilliseconds);
+	}
+}
+
+// Начинает замер участка только при включённой статистике, запоминая родительский замер потока.
+CELSharedDebugScope::CELSharedDebugScope(EELDebugGroup ScopeGroup, EELDebugStage ScopeStage) : Group(ScopeGroup), Stage(ScopeStage)
+{
+	IsActive = CELSharedDebug::Instance().IsStatsEnabled();
+	if (!IsActive)
+	{
+		return;
+	}
+	FrameIdentifier = Device.dwFrame;
+	Parent = ExtendedEntityesDebugTiming::CurrentScope;
+	ExtendedEntityesDebugTiming::CurrentScope = this;
+	Timer.emplace();
+}
+
+// Вычитает вложенные замеры, чтобы суммарная цена не учитывала одну работу дважды.
+CELSharedDebugScope::~CELSharedDebugScope()
+{
+	if (!IsActive)
+	{
+		return;
+	}
+	const u64 ElapsedMicroseconds = Timer->GetElapsed_mcs();
+	ExtendedEntityesDebugTiming::CurrentScope = Parent;
+	if (Parent)
+	{
+		Parent->ChildrenMicroseconds += ElapsedMicroseconds;
+	}
+	CELSharedDebug::Instance().RecordTiming(FrameIdentifier, Group, Stage, ElapsedMicroseconds > ChildrenMicroseconds ? ElapsedMicroseconds - ChildrenMicroseconds : 0);
+}
+
+// Удаляет устаревшие мировые отметки, не сбрасывая собранные замеры производительности.
+void CELSharedDebug::ClearWorld()
+{
+	xrCriticalSectionGuard Guard(QueueLock);
+	Records.clear();
+	Events.clear();
 }

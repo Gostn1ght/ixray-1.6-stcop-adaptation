@@ -20,6 +20,7 @@ struct TExtendedEntityesLogic final
 	EELControl Update(float DeltaTime);
 	void FrameUpdate(float DeltaTime);
 	void Hear(const SELSoundEvent& SoundEvent);
+	void ForgetTarget(u16 ObjectIdentifier);
 	void RemoveObject(u16 ObjectIdentifier);
 	bool Accept(const SELObservation& Observation, CBaseMonster& SourceMonster);
 	bool IsActive() const;

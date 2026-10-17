@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ai/ExtendedEntityesLogic/Debug/Debug.h"
 #include <algorithm>
 #include "ai/ExtendedEntityesLogic/EntityesCategory/Flying/Entityes/Passive/Entityes/Crows/Perceptions/CELCrowPerception.h"
 #include "ai/ExtendedEntityesLogic/EntityesCategory/Flying/Entityes/Passive/Entityes/Crows/CELSharedCrowMemory.h"
@@ -17,11 +18,7 @@ namespace ExtendedEntityesCrowPerception
 // Учитывает штатный отладочный режим игнорирования главного героя.
 bool Ignore(const CEntityAlive& Entity)
 {
-#ifndef MASTER_GOLD
-	return Entity.CLS_ID == CLSID_OBJECT_ACTOR && psAI_Flags.test(aiIgnoreActor);
-#else
-	return false;
-#endif
+	return ExtendedEntityes::IsIgnored(Entity);
 }
 } // namespace ExtendedEntityesCrowPerception
 // Обновляет реакцию вороны на дождь и время суток с заданным интервалом.
@@ -46,6 +43,26 @@ void CELCrowPerception::ObserveWeather(SELCrowState& State, const SELCrowSetting
 // Обновляет личные наблюдения владельца с учётом доступного бюджета.
 void CELCrowPerception::Observe(CBaseMonster& Owner, SELCrowState& State, const SELCrowSettings& Settings, float DeltaTime)
 {
+	CEntityAlive* PreviousThreat = ExtendedEntityes::FindEntity(KnownThreat);
+	if (!ThreatWasHeard && PreviousThreat && ExtendedEntityes::IsIgnored(*PreviousThreat))
+	{
+		KnownThreat = u16(-1);
+		State.Fear = 0.f;
+	}
+	if (ThreatWasHeard && State.Fear > Settings.FearCalm && CELSharedDebug::Instance().IsDrawEnabled())
+	{
+		SELDebugEvent DebugEvent;
+		DebugEvent.OwnerIdentifier = Owner.ID();
+		DebugEvent.TargetIdentifier = KnownThreat;
+		DebugEvent.Start = Owner.Position();
+		DebugEvent.Finish = State.Danger;
+		DebugEvent.Radius = .25f;
+		DebugEvent.Label = "Услышанная угроза";
+		CELSharedDebug::Instance().PublishEvent(DebugEvent);
+		DebugEvent.Kind = EELDebugEvent::Fear;
+		DebugEvent.Label = "Испуг: уход от звука";
+		CELSharedDebug::Instance().PublishEvent(std::move(DebugEvent));
+	}
 	ObserveWeather(State, Settings, DeltaTime);
 	if (s32(Device.dwTimeGlobal - NextScan) < 0)
 	{
@@ -68,6 +85,7 @@ void CELCrowPerception::Observe(CBaseMonster& Owner, SELCrowState& State, const 
 			continue;
 		}
 		KnownThreat = Candidate->ID();
+		ThreatWasHeard = false;
 		State.Danger = Candidate->Position();
 		State.Fear = std::min(1.f, State.Fear + Settings.FearRise * Settings.PerceptionInterval);
 		break;
@@ -95,11 +113,6 @@ void CELCrowPerception::Hear(CBaseMonster& Owner, SELCrowState& State, const SEL
 	{
 		return;
 	}
-	CEntityAlive* Source = ExtendedEntityes::FindEntity(Event.SourceIdentifier);
-	if (Source && ExtendedEntityesCrowPerception::Ignore(*Source))
-	{
-		return;
-	}
 	if (!Event.SoundType || Event.SoundType == u32(-1) || !_valid(Event.Position))
 	{
 		return;
@@ -121,6 +134,19 @@ void CELCrowPerception::Hear(CBaseMonster& Owner, SELCrowState& State, const SEL
 	}
 	const float FearGain = Type == EELNoiseType::Explosion ? Settings.ExplosionFear : Type == EELNoiseType::Shot || Type == EELNoiseType::BulletHit ? Settings.ShotFear
 																																					: Settings.NoiseFearGain;
+	if (CELSharedDebug::Instance().IsDrawEnabled())
+	{
+		SELDebugEvent DebugEvent;
+		DebugEvent.OwnerIdentifier = Owner.ID();
+		DebugEvent.TargetIdentifier = Event.SourceIdentifier;
+		DebugEvent.Start = Owner.Position();
+		DebugEvent.Finish = Event.Position;
+		DebugEvent.Radius = .25f;
+		DebugEvent.Label = CELSharedPerceptionProfiles::NoiseName(Type);
+		CELSharedDebug::Instance().PublishEvent(std::move(DebugEvent));
+	}
+	KnownThreat = Event.SourceIdentifier;
+	ThreatWasHeard = true;
 	State.Danger = Event.Position;
 	State.Fear = std::min(1.f, State.Fear + FearGain);
 }

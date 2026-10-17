@@ -7,6 +7,26 @@
 #include "entity_alive.h"
 #include "Level.h"
 
+// Выбирает переднюю точку тела с учётом смещения геометрии относительно корня модели.
+Fvector CELFlyingAttack::LocalContactPoint(const CBaseMonster& OwnerMonster)
+{
+	const Fbox& Bounds = OwnerMonster.BoundingBox();
+	return Fvector().set((Bounds.min.x + Bounds.max.x) * .5f, (Bounds.min.y + Bounds.max.y) * .5f, Bounds.max.z);
+}
+
+// Переводит цель для передней точки тела в положение корня на горизонтальном выходе.
+Fvector CELFlyingAttack::RootAtContact(const CBaseMonster& OwnerMonster, const Fvector& TargetPoint, const Fvector& Direction)
+{
+	float Heading;
+	float Pitch;
+	Direction.getHP(Heading, Pitch);
+	Fmatrix Orientation;
+	Orientation.setHPB(Heading, 0.f, 0.f);
+	Fvector ContactOffset;
+	Orientation.transform_dir(ContactOffset, LocalContactPoint(OwnerMonster));
+	return Fvector().sub(TargetPoint, ContactOffset);
+}
+
 // Проверяет фактический контакт атаки и наносит допустимый урон цели.
 bool CELFlyingAttack::TryHit(IELAdapter& Adapter, const SELFlyingSettings& Settings, u16 TargetIdentifier)
 {
@@ -21,7 +41,7 @@ bool CELFlyingAttack::TryHit(IELAdapter& Adapter, const SELFlyingSettings& Setti
 	}
 	CBaseMonster& OwnerMonster = Adapter.Monster();
 	Fvector AttackPoint = OwnerMonster.Position();
-	OwnerMonster.XFORM().transform_tiny(AttackPoint, Fvector().set(0.f, 0.f, OwnerMonster.BoundingBox().max.z));
+	OwnerMonster.XFORM().transform_tiny(AttackPoint, LocalContactPoint(OwnerMonster));
 	Fmatrix TargetInverse;
 	TargetInverse.invert(TargetEntity->XFORM());
 	Fvector TargetPoint;

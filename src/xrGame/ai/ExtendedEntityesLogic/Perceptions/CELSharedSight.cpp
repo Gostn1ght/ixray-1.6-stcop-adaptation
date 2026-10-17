@@ -31,6 +31,11 @@ bool Inspect(collide::rq_result& Hit, LPVOID Context)
 // Проверяет видимость цели, отличая ожидание бюджета от закрытого обзора.
 EELSightResult CELSharedSight::Check(CBaseMonster& OwnerMonster, CObject& Candidate, float Angle, float Radius)
 {
+	CEntityAlive* TargetEntity = Candidate.cast_entity_alive();
+	if (TargetEntity && ExtendedEntityes::IsIgnored(*TargetEntity))
+	{
+		return EELSightResult::Occluded;
+	}
 	Fvector TargetPosition;
 	Candidate.Center(TargetPosition);
 	const Fvector StartPosition = OwnerMonster.eye_matrix.c;

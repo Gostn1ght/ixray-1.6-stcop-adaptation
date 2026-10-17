@@ -15,6 +15,7 @@
 #include "enemy_manager.h"
 #include "visual_memory_manager.h"
 #include "Actor.h"
+#include "../Debug/Debug.h"
 #include "Level.h"
 #include "ai_space.h"
 #include "level_graph.h"
@@ -71,6 +72,10 @@ bool CELComponentBase::HasVisualAcquired(CEntityAlive& Candidate, u32 CurrentTim
 // Записывает подтверждённые сведения о сущности в личную память.
 void CELComponentBase::RememberEntity(CEntityAlive& TargetEntity, EELObservationSource Source, u32 ObservedAt)
 {
+	if (ExtendedEntityes::IsIgnored(TargetEntity))
+	{
+		return;
+	}
 	SELObservation Observation;
 	Observation.TargetIdentifier = TargetEntity.ID();
 	Observation.Position = TargetEntity.Position();
@@ -93,6 +98,11 @@ void CELComponentBase::Observe()
 	}
 	CBaseMonster& OwnerMonster = Adapter->Monster();
 	const u32 CurrentTime = Device.dwTimeGlobal;
+	if (Actor() && ExtendedEntityes::IsIgnored(*Actor()))
+	{
+		ForgetTarget(Actor()->ID());
+	}
+	Hearing.PublishDebug(OwnerMonster.Position(), Profile, OwnerMonster.ID());
 	ObserveVision(OwnerMonster, CurrentTime);
 	ObserveDamage(OwnerMonster, CurrentTime);
 	CELSharedDeaths::UpdateCombat(OwnerMonster, Profile, OwnerMonster.EnemyMan.see_enemy_now());
@@ -105,6 +115,19 @@ void CELComponentBase::Observe()
 	const SELObservation* SelectedObservation = Profile.IsPassive ? nullptr : CELSharedTargets::Select(Memory, *Adapter, TargetIdentifier);
 	TargetIdentifier = SelectedObservation ? SelectedObservation->TargetIdentifier : u16(-1);
 	PublishNativeMemory();
+	if (SelectedObservation && CELSharedDebug::Instance().IsDrawEnabled())
+	{
+		SELDebugEvent Event;
+		Event.Kind = EELDebugEvent::Trail;
+		Event.OwnerIdentifier = OwnerMonster.ID();
+		Event.TargetIdentifier = TargetIdentifier;
+		Event.Start = OwnerMonster.Position();
+		Event.Finish = SelectedObservation->Position;
+		Event.Points = SelectedObservation->Trail;
+		Event.Radius = .25f;
+		Event.Label = "Последняя известная точка / след";
+		CELSharedDebug::Instance().PublishEvent(std::move(Event));
+	}
 }
 
 // Передаёт актуальные подтверждённые знания в штатную память монстра.
@@ -202,16 +225,14 @@ void CELComponentBase::Hear(const SELSoundEvent& SoundEvent)
 	}
 	CEntityAlive* SourceEntity = ExtendedEntityes::FindEntity(SoundEvent.SourceIdentifier);
 	const bool IsDeath = CELSharedHearing::Classify(SoundEvent) == EELNoiseType::Death;
-	if (SourceEntity && !Adapter->IsEnemy(*SourceEntity) && !IsDeath && !Profile.IsPassive)
-	{
-		return;
-	}
-	const bool WasHeard = Hearing.Hear(SoundEvent, Adapter->Monster().Position(), Profile);
+	const bool WasHeard = Hearing.Hear(SoundEvent, Adapter->Monster().Position(), Profile, Adapter->Monster().ID());
+
 	CBaseMonster* SourceMonster = SourceEntity ? smart_cast<CBaseMonster*>(SourceEntity) : nullptr;
 	if (WasHeard && IsDeath && Profile.CanHearDeaths && (Profile.InterestNoiseTypes & ELNoiseTypeMask(EELNoiseType::Death)) &&
 		SourceMonster && !SourceMonster->g_Alive() && CELSharedEnemySharing::AreFriends(Adapter->Monster(), *SourceMonster) &&
 		Adapter->Monster().Position().distance_to_sqr(SoundEvent.Position) <= Profile.DeathHearingRadius * Profile.DeathHearingRadius)
 	{
+		Hearing.SetSource(SoundEvent.SourceIdentifier);
 		Hearing.AttentionPosition = SoundEvent.Position;
 		Hearing.InvestigateUntil = SoundEvent.OccurredAt + Profile.SearchMax;
 	}
@@ -220,11 +241,24 @@ void CELComponentBase::Hear(const SELSoundEvent& SoundEvent)
 // Удаляет знания и ссылки, связанные с исчезнувшим объектом.
 void CELComponentBase::RemoveObject(u16 ObjectIdentifier)
 {
+	ForgetTarget(ObjectIdentifier);
+	Hearing.RemoveObject(ObjectIdentifier);
+}
+
+// Удаляет сведения о противнике, не затрагивая слуховое внимание к его звукам.
+void CELComponentBase::ForgetTarget(u16 ObjectIdentifier)
+{
+	const bool HadObservation = Memory.Find(ObjectIdentifier) != nullptr;
 	Memory.Remove(ObjectIdentifier);
 	VisualAcquisition.erase(ObjectIdentifier);
 	if (TargetIdentifier == ObjectIdentifier)
 	{
 		TargetIdentifier = u16(-1);
+		CELSharedTargets::RemoveOwner(Adapter->Monster().ID());
+	}
+	if (HadObservation && HasAttached)
+	{
+		PublishNativeMemory();
 	}
 }
 
@@ -293,6 +327,7 @@ void CELComponentBase::ObserveDamage(CBaseMonster& OwnerMonster, u32 CurrentTime
 		}
 		if (Profile.CanPanicOnDamage && !Adapter->CanSee(*Candidate))
 		{
+			Hearing.SetSource(Candidate->ID());
 			Hearing.AttentionPosition = OwnerMonster.HitMemory.get_last_hit_position();
 			Hearing.PanicUntil = OwnerMonster.HitMemory.get_last_hit_time() + 10000;
 		}

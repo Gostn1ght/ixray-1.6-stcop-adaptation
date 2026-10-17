@@ -3,5 +3,5 @@
 class CELSharedDebugDrawWorld final
 {
 public:
-	static void Draw(const xr_vector<SELDebugRecord>& Records);
+	static void Draw(const xr_vector<SELDebugRecord>& Records, const xr_vector<SELDebugEvent>& Events);
 };

@@ -88,6 +88,10 @@ void ReadAttack(SELFlyingSettings& Result, const char* Section)
 	Result.AttackApproachRatio = Number(Section, "flight_attack_approach_ratio", 0.6f, 0.1f, 1.0f);
 	Result.AttackApproachHeightRatio = Number(Section, "flight_attack_approach_height_ratio", 0.6f, 0.1f, 1.0f);
 	Result.AttackPulloutPitch = Number(Section, "flight_attack_pullout_pitch", 0.2f, 0.0f, 0.8f);
+	Result.AttackReplanDistance = Number(Section, "flight_attack_replan_distance", .5f, .05f, 5.f);
+	Result.AttackDiveProbability = Number(Section, "flight_attack_dive_probability", .4f, 0.f, 1.f);
+	Result.AttackArcSideRatio = Number(Section, "flight_attack_arc_side_ratio", .65f, 0.f, 1.f);
+	Result.AttackLeadTime = Number(Section, "flight_attack_lead_time", .35f, 0.f, 1.f);
 	Result.AttackCooldown = u32(Number(Section, "flight_attack_cooldown", 2.5f, .25f, 30.f) * 1000.f);
 	Result.AttackIndicatorTime = u32(Number(Section, "flight_attack_indicator_time", .2f, .05f, 2.f) * 1000.f);
 }

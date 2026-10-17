@@ -37,6 +37,10 @@ struct SELFlyingSettings
 	float AttackApproachRatio = .6f;
 	float AttackApproachHeightRatio = .6f;
 	float AttackPulloutPitch = .2f;
+	float AttackReplanDistance = .5f;
+	float AttackLeadTime = .35f;
+	float AttackDiveProbability = .4f;
+	float AttackArcSideRatio = .65f;
 	float GroundClearance = .1f;
 	float LandingSpeedMinimum = .35f;
 	float MaximumBank = .6f;

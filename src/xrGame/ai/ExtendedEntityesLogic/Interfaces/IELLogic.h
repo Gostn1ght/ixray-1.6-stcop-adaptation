@@ -25,6 +25,7 @@ public:
 	virtual EELControl Update(float DeltaTime) = 0;
 	virtual void FrameUpdate(float DeltaTime) = 0;
 	virtual void Hear(const SELSoundEvent& SoundEvent) = 0;
+	virtual void ForgetTarget(u16 ObjectIdentifier) = 0;
 	virtual void RemoveObject(u16 ObjectIdentifier) = 0;
 	virtual bool Accept(const SELObservation& Observation, CBaseMonster& SourceMonster) = 0;
 };

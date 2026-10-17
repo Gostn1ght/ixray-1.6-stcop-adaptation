@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ai/ExtendedEntityesLogic/Debug/Debug.h"
 #include <cmath>
 #include "ai/ExtendedEntityesLogic/EntityesCategory/Ground/Behaviors/CELGroundReactionBehavior.h"
 #include "ai/ExtendedEntityesLogic/Interfaces/IELAdapter.h"
@@ -59,9 +60,12 @@ bool CELGroundReactionBehavior::SelectPoint()
 			Candidate = SourcePosition;
 		}
 		CandidateVertex = ai().level_graph().vertex_id(Candidate);
-		if (Adapter.CanReach(Candidate, CandidateVertex))
+		if (ai().level_graph().valid_vertex_id(CandidateVertex))
 		{
 			Candidate.y = ai().level_graph().vertex_plane_y(CandidateVertex, Candidate.x, Candidate.z);
+		}
+		if (Adapter.CanReach(Candidate, CandidateVertex))
+		{
 			ReactionPosition = Candidate;
 			ReactionVertex = CandidateVertex;
 			Navigation.Reset();
@@ -83,7 +87,7 @@ void CELGroundReactionBehavior::Update(float DeltaTime)
 	if (s32(Device.dwTimeGlobal - Until) >= 0)
 	{
 		Movement.Stop();
-		Validation = {EELBehaviorState::Completed, "Noise reaction finished"};
+		Validation = {EELBehaviorState::Completed, "Реакция на шум завершена"};
 		return;
 	}
 	if (!HasPoint && s32(Device.dwTimeGlobal - NextPoint) >= 0)
@@ -93,21 +97,32 @@ void CELGroundReactionBehavior::Update(float DeltaTime)
 	}
 	if (!HasPoint)
 	{
-		Validation = {EELBehaviorState::Blocked, "No reachable reaction point"};
+		Validation = {EELBehaviorState::Blocked, "Нет доступной точки реакции"};
 		return;
 	}
 	if (Adapter.Monster().Position().distance_to_sqr(ReactionPosition) < 2.25f)
 	{
 		Movement.Stop();
 		HasPoint = !IsFleeing;
-		Validation = {EELBehaviorState::Running, IsFleeing ? "Fleeing noise" : "Inspecting noise"};
+		Validation = {EELBehaviorState::Running, IsFleeing ? "Бегство от шума" : "Осмотр источника шума"};
 		ProgressTime = Device.dwTimeGlobal;
 		return;
 	}
-	Validation = {EELBehaviorState::Running, IsFleeing ? "Fleeing noise" : "Approaching noise"};
+	if (CELSharedDebug::Instance().IsDrawEnabled())
+	{
+		SELDebugEvent Event;
+		Event.Kind = EELDebugEvent::Search;
+		Event.OwnerIdentifier = Adapter.Monster().ID();
+		Event.Start = Adapter.Monster().Position();
+		Event.Finish = ReactionPosition;
+		Event.Radius = .4f;
+		Event.Label = IsFleeing ? "Уход от шума" : "Исследование шума";
+		CELSharedDebug::Instance().PublishEvent(std::move(Event));
+	}
+	Validation = {EELBehaviorState::Running, IsFleeing ? "Бегство от шума" : "Подход к источнику шума"};
 	if (!Move(ReactionPosition, ReactionVertex, IsFleeing))
 	{
 		HasPoint = false;
-		Validation = {EELBehaviorState::Blocked, "Reaction route blocked"};
+		Validation = {EELBehaviorState::Blocked, "Путь к источнику шума перекрыт"};
 	}
 }

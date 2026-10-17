@@ -22,7 +22,7 @@ void CELGroundAttackBehavior::Update(float DeltaTime)
 	CEntityAlive* TargetEntity = ExtendedEntityes::FindEntity(Observation.TargetIdentifier);
 	if (!TargetEntity || !Adapter.IsEnemy(*TargetEntity))
 	{
-		Validation = {EELBehaviorState::InvalidTarget, "Lost target"};
+		Validation = {EELBehaviorState::InvalidTarget, "Цель потеряна"};
 		return;
 	}
 	Fvector GoalPosition = Observation.Position;
@@ -33,11 +33,11 @@ void CELGroundAttackBehavior::Update(float DeltaTime)
 		GoalPosition = TargetEntity->Position();
 		GoalVertex = TargetEntity->ai_location().level_vertex_id();
 	}
-	Validation = {EELBehaviorState::Running, HasVision ? "Approach visible" : "Last known point"};
+	Validation = {EELBehaviorState::Running, HasVision ? "Подход к видимой цели" : "К последней известной точке"};
 	UpdateDeadline();
 	if (s32(Device.dwTimeGlobal - ApproachDeadline) >= 0)
 	{
-		Validation = {EELBehaviorState::Completed, "Approach deadline"};
+		Validation = {EELBehaviorState::Completed, "Истёк срок сближения"};
 		Movement.Stop();
 		return;
 	}
@@ -52,7 +52,7 @@ void CELGroundAttackBehavior::Update(float DeltaTime)
 	Validation = {EELBehaviorState::Running, Approach.Description()};
 	if (!Move(Approach.Position(), Approach.Vertex(), Approach.Runs()))
 	{
-		Validation = {EELBehaviorState::Blocked, "Unreachable point"};
+		Validation = {EELBehaviorState::Blocked, "Недоступная точка"};
 	}
 }
 

@@ -157,5 +157,6 @@ struct SELPerceptionProfile
 class CELSharedPerceptionProfiles
 {
 public:
+	static const char* NoiseName(EELNoiseType Type);
 	static SELPerceptionProfile Read(const char* Section, const CInifile* SystemSettings);
 };

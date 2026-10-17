@@ -114,15 +114,15 @@ const char* CELFlyingNavigation::Status() const
 {
 	if (HasCapture)
 	{
-		return "Capturing 3D air corridors";
+		return "Поиск объёмного воздушного коридора";
 	}
 	if (HasGeometry)
 	{
-		return "Checking flight body clearance";
+		return "Проверка прохода для тела";
 	}
 	if (HasPendingRequest)
 	{
-		return "Flight worker pending";
+		return "Ожидание расчёта полёта";
 	}
-	return HasBlocked ? "No certified air corridor" : "Flight request not queued";
+	return HasBlocked ? "Нет проверенного воздушного коридора" : "Запрос полёта не поставлен в очередь";
 }

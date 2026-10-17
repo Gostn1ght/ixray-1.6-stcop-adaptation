@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "../Debug/Debug.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedAnomalies.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedPerceptionProfiles.h"
 #include "ai/ExtendedEntityesLogic/CELSharedPerceptionBudget.h"
@@ -46,6 +47,7 @@ void CELSharedAnomalies::Observe(CBaseMonster& OwnerMonster, const SELPerception
 	CGameObject* CandidateGameObject;
 	CAnomalyZone* Zone;
 	SELNavigationObstacle Field;
+	SELDebugEvent Event;
 	for (CandidateIterator = Candidates.begin(); CandidateIterator != Candidates.end() && Local.Fields.size() < 32; ++CandidateIterator)
 	{
 		CandidateObject = *CandidateIterator ? (*CandidateIterator)->dcast_CObject() : nullptr;
@@ -58,6 +60,18 @@ void CELSharedAnomalies::Observe(CBaseMonster& OwnerMonster, const SELPerception
 		Zone->Center(Field.Position);
 		Field.Radius = Zone->Radius() + Profile.AnomalyMargin;
 		Local.Fields.push_back(Field);
+		if (CELSharedDebug::Instance().IsDrawEnabled())
+		{
+			Event = SELDebugEvent();
+			Event.Kind = EELDebugEvent::Hazard;
+			Event.OwnerIdentifier = OwnerMonster.ID();
+			Event.TargetIdentifier = Zone->ID();
+			Event.Start = OwnerMonster.Position();
+			Event.Finish = Field.Position;
+			Event.Radius = Field.Radius;
+			Event.Label = "Известная аномалия: обход";
+			CELSharedDebug::Instance().PublishEvent(std::move(Event));
+		}
 	}
 }
 

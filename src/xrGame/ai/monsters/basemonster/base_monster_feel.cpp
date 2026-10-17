@@ -38,7 +38,10 @@ void CBaseMonster::feel_sound_new(CObject* who, int eType, CSound_UserDataPtr us
 	if (this == who)	return;
 
 	PROF_EVENT("CBaseMonster::feel_sound_new");
-	ExtendedEntityes::Hear(*this, who, u32(eType), Position, power);
+	if (ExtendedEntityes::Hear(*this, who, u32(eType), Position, power))
+	{
+		return;
+	}
 
 	if (user_data)
 		user_data->accept	(sound_user_data_visitor());

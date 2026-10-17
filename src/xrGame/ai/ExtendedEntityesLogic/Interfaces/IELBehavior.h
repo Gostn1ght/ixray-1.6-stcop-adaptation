@@ -21,7 +21,7 @@ enum class EELRecovery : u8
 struct SELBehaviorValidation
 {
 	EELBehaviorState State = EELBehaviorState::Running;
-	const char* Reason = "Running";
+	const char* Reason = "Выполняется";
 };
 
 class IELBehavior

@@ -10,6 +10,7 @@
 #include "ai_space.h"
 #include "level_graph.h"
 #include "Level.h"
+#include "Actor.h"
 
 // Связывает видовое поведение вороны с необходимыми службами и состоянием владельца.
 CELScavengerCrow::CELScavengerCrow(xr_unique_ptr<IELAdapter> OwnerAdapter, const SELPerceptionProfile& OwnerProfile, CELCrowEntity& OwnerEntity) : CELFlyingNonAttackingBase(std::move(OwnerAdapter), OwnerProfile), Bird(OwnerEntity), Settings(CELCrowSettings::Read(Bird.cNameSect().c_str())), Persistence(Bird, Settings, State), CrowCruiseBehavior(*Adapter, FlightSettings, Movement, Settings, State), LandingBehavior(*Adapter, Movement, FlightSettings, Settings), RestBehavior(*Adapter, Movement, Bird.Animation(), Settings, State), FeedingBehavior(*Adapter, Movement, Bird.Animation(), Settings, State)
@@ -52,6 +53,7 @@ void CELScavengerCrow::Detach()
 void CELScavengerCrow::Observe()
 {
 	// The passive bird has no combat memory. Its bounded candidate requests are processed centrally.
+	Hearing.PublishDebug(Bird.Position(), Profile, Bird.ID());
 	Bird.EnemyMemory.clear();
 	TargetIdentifier = u16(-1);
 }
@@ -68,13 +70,21 @@ void CELScavengerCrow::Hear(const SELSoundEvent& Event)
 		Perception.Hear(Bird, State, Settings, Event, Profile);
 		if (Profile.InterestNoiseTypes & ELNoiseTypeMask(CELSharedHearing::Classify(Event)))
 		{
-			Hearing.Hear(Event, Bird.Position(), Profile);
+			Hearing.Hear(Event, Bird.Position(), Profile, Bird.ID());
 		}
 	}
 }
 // Удаляет знания и ссылки, связанные с исчезнувшим объектом.
 void CELScavengerCrow::RemoveObject(u16 ObjectIdentifier)
 {
+	if (Perception.ThreatIdentifier() == ObjectIdentifier)
+	{
+		State.Fear = 0.f;
+		if (FlightMode == EELCrowFlightMode::Escape)
+		{
+			State.Remaining = 0.f;
+		}
+	}
 	CELFlyingNonAttackingBase::RemoveObject(ObjectIdentifier);
 	Perception.Remove(ObjectIdentifier);
 	CELSharedCrowMemory::Instance().Invalidate(ObjectIdentifier);

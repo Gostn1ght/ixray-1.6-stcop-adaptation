@@ -8,6 +8,7 @@ struct SELSharedWorkSettings
 	u32 SpatialQueries = 2;
 	u32 SharingSessions = 12;
 	u32 SharingTransfers = 32;
+	u32 TargetAssignments = 64;
 	u32 NavigationSteps = 256;
 	u32 NavigationCaptureNodes = 72;
 	u32 NavigationSliceMicroseconds = 1500;

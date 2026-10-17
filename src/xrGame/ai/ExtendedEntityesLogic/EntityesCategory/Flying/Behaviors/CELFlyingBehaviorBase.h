@@ -22,6 +22,8 @@ protected:
 	virtual void ChooseGoal() = 0;
 	virtual bool CanPlanCurve() const { return true; }
 	virtual void OnRouteActivated();
+	virtual void ConfigureCurveRequest(SELNavigationRequest& Request) {}
+	virtual bool CanActivatePreparedRoute() { return true; }
 	bool RequestCurve();
 	void ActivatePreparedRoute();
 	IELAdapter& Adapter;

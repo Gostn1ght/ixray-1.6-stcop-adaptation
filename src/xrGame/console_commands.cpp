@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <charconv>
 #include "pch_script.h"
 #include "../xrEngine/xr_ioc_cmd.h"
 #include "../xrEngine/CustomHUD.h"
@@ -1884,228 +1885,210 @@ static bool isValidSection(std::string_view section)
 	return FS.exist(full_path.c_str());
 }
 
-class CCC_GSpawn : public IConsole_Command {
-public:
-	CCC_GSpawn(const char* N) : IConsole_Command(N) {
+namespace SpawnCommand
+{
+// Читает число целиком, запрещая обрезанные значения и лишние символы.
+template <typename TValue>
+bool ParseNumber(const xr_string& Token, TValue& Value)
+{
+	const char* First = Token.c_str();
+	const char* Last = First + Token.size();
+	if (First != Last && *First == '+')
+	{
+		++First;
 	}
+	const std::from_chars_result Result = std::from_chars(First, Last, Value);
+	return Result.ec == std::errc{} && Result.ptr == Last;
+}
+} // namespace SpawnCommand
 
-	virtual void Execute(const char* args) override {
+class CCC_GSpawn : public IConsole_Command
+{
+public:
+	CCC_GSpawn(const char* Name) : IConsole_Command(Name) {}
 
-		if (IsGameTypeSingle())
+	// Создаёт объекты под прицелом либо ближе, на явно заданной третьим аргументом дистанции.
+	void Execute(const char* Arguments) override
+	{
+		if (!g_pGameLevel)
 		{
-			CActor* actor = Level().CurrentEntity() != nullptr ? Level().CurrentEntity()->cast_actor() : nullptr;
-			if (actor == nullptr)
+			return;
+		}
+		xr_string Section;
+		int Count = 1;
+		float Distance = -1.f;
+		if (!ReadArguments(Arguments, Section, Count, Distance))
+		{
+			return;
+		}
+		CActor* ActorOwner = Level().CurrentEntity() ? Level().CurrentEntity()->cast_actor() : nullptr;
+		if (IsGameTypeSingle() && (!ActorOwner || !ai().get_alife() || !Level().Server || !Level().Server->game))
+		{
+			return;
+		}
+		Fvector Position;
+		if (!SelectPosition(ActorOwner, Distance, Position))
+		{
+			return;
+		}
+		if (!IsGameTypeSingle())
+		{
+			NET_Packet Packet;
+			Packet.w_begin(M_REMOTE_CONTROL_CMD);
+			string256 Command;
+			xr_sprintf(Command, "spawn_on_position %s %f %f %f %d", Section.c_str(), Position.x, Position.y, Position.z, Count);
+			Packet.w_stringZ(Command);
+			Level().Send(Packet, net_flags(true, true));
+			return;
+		}
+		const u32 Vertex = ActorOwner->ai_location().level_vertex_id();
+		if (!ai().level_graph().valid_vertex_id(Vertex))
+		{
+			return;
+		}
+		int SpawnIndex;
+		for (SpawnIndex = 0; SpawnIndex < Count; ++SpawnIndex)
+		{
+			if (!SpawnObject(Section, Position, Vertex, ActorOwner->ai_location().game_vertex_id()))
 			{
 				return;
-			}
-
-			int count = 1;
-			string128 nameSection = {};
-			auto sc = sscanf_s(args, "%s %d", nameSection, (unsigned)sizeof(nameSection), &count);
-			if (sc > 2) {
-				Msg("! Failed to parse input");
-				return;
-			}
-
-			if (!pSettings->section_exist(nameSection))
-			{
-				Msg("! Can't find section: %s", nameSection);
-				return;
-			}
-
-			if (pSettings->line_exist(nameSection, "visual"))
-			{
-				if (!isValidSection(nameSection))
-				{
-					std::string_view visual = pSettings->r_string(nameSection, "visual");
-					Msg("! Failed insert [%s] visual not found", nameSection);
-					return;
-				}
-			}
-
-			Fvector3 point = point.mad(Device.vCameraPosition, Device.vCameraDirection, HUD().GetCurrentRayQuery().range);
-
-			for (size_t i = 0; i < count; i++) {
-				auto item = Level().Server->game->alife().spawn_item(nameSection, point, 0, actor->ai_location().game_vertex_id(), ALife::INVALID_OBJECT_ID);
-				item->cast_alife_object()->use_ai_locations(false);
-
-				auto anomaly = item->cast_anomalous_zone();
-				if (anomaly != nullptr) {
-					CShapeData::shape_def _shape{};
-					_shape.data.sphere.P.set(0.0f, 0.0f, 0.0f);
-					_shape.data.sphere.R = 3;
-					_shape.type = CShapeData::cfSphere;
-
-					anomaly->assign_shapes(&_shape, 1);
-					anomaly->m_owner_id = u32(-1);
-					anomaly->m_space_restrictor_type = RestrictionSpace::eRestrictorTypeNone;
-				}
-
-
-				if (auto weapon = item->cast_item_weapon())
-				{
-					if (weapon->m_scope_status == ALife::eAddonAttachable)
-					{
-						weapon->m_addon_flags.set(CSE_ALifeItemWeapon::eWeaponAddonScope, true);
-					}
-					if (weapon->m_silencer_status == ALife::eAddonAttachable)
-					{
-						weapon->m_addon_flags.set(CSE_ALifeItemWeapon::eWeaponAddonSilencer, true);
-					}
-					if (weapon->m_grenade_launcher_status == ALife::eAddonAttachable)
-					{
-						weapon->m_addon_flags.set(CSE_ALifeItemWeapon::eWeaponAddonGrenadeLauncher, true);
-					}
-				}
 			}
 		}
+	}
 
-		else 
+	// Подсказывает зарегистрированные секции игровых объектов.
+	void fill_tips(vecTips& Tips, u32 Mode) override
+	{
+		if (!pSettings)
 		{
-			string128 nameSection = {};
-			int count = 1;
-			auto sc = sscanf_s(args, "%s %d", nameSection, (unsigned)sizeof(nameSection), &count);
-			if (sc > 2) {
-				Msg("! Failed to parse input");
-				return;
-			}
-
-			if (pSettings->section_exist(nameSection))
+			return;
+		}
+		CInifile::Root::iterator SectionIterator;
+		for (SectionIterator = pSettings->sections().begin(); SectionIterator != pSettings->sections().end(); ++SectionIterator)
+		{
+			if (SectionIterator->line_exist("class"))
 			{
-				Fvector3 madPos = madPos.mad(Device.vCameraPosition, Device.vCameraDirection, HUD().GetCurrentRayQuery().range);
+				Tips.push_back(SectionIterator->Name.c_str());
+			}
+		}
+	}
 
-				NET_Packet		P;
-				P.w_begin(M_REMOTE_CONTROL_CMD);
-				string128 str;
-				xr_sprintf(str, "spawn_on_position %s %f %f %f %d", nameSection, madPos.x, madPos.y, madPos.z, count);
-				P.w_stringZ(str);
-				Level().Send(P, net_flags(true, true));
+private:
+	// Разбирает аргументы и проверяет существование допустимой секции спавна.
+	static bool ReadArguments(const char* Arguments, xr_string& Section, int& Count, float& Distance)
+	{
+		xr_string NormalizedArguments;
+		const char* Cursor;
+		for (Cursor = Arguments ? Arguments : ""; *Cursor; ++Cursor)
+		{
+			if (u8(*Cursor) <= u8(' '))
+			{
+				if (!NormalizedArguments.empty() && NormalizedArguments.back() != ' ')
+				{
+					NormalizedArguments += ' ';
+				}
 			}
 			else
 			{
-				Msg("! ERROR: bad command parameters.");
-				Msg("Spawn item. Format: \"g_spawn <item section> <count>\"");
-				return;
+				NormalizedArguments += *Cursor;
 			}
 		}
+		_TrimRight(NormalizedArguments);
+		const int ArgumentCount = _GetItemCount(NormalizedArguments.c_str(), ' ');
+		xr_string Token;
+		_GetItem(NormalizedArguments.c_str(), 0, Section, ' ');
+		bool IsParsed = ArgumentCount >= 1 && ArgumentCount <= 3 && !Section.empty() && Section.size() < 128;
+		if (IsParsed && ArgumentCount >= 2)
+		{
+			_GetItem(NormalizedArguments.c_str(), 1, Token, ' ');
+			IsParsed = SpawnCommand::ParseNumber(Token, Count);
+		}
+		if (IsParsed && ArgumentCount == 3)
+		{
+			_GetItem(NormalizedArguments.c_str(), 2, Token, ' ');
+			IsParsed = SpawnCommand::ParseNumber(Token, Distance) && Distance > 0.f;
+		}
+		if (!IsParsed || Count < 1 || Count > 256 || !_valid(Distance) || Distance > 5000.f)
+		{
+			Msg("! Format: g_spawn <section> [count: 1..256] [distance: >0..5000 metres]");
+			return false;
+		}
+		if (!pSettings->section_exist(Section.c_str()) || !pSettings->line_exist(Section.c_str(), "class"))
+		{
+			Msg("! Can't find spawn section: %s", Section.c_str());
+			return false;
+		}
+		if (pSettings->line_exist(Section.c_str(), "visual") && !isValidSection(Section.c_str()))
+		{
+			Msg("! Failed insert [%s]: visual not found", Section.c_str());
+			return false;
+		}
+		return true;
 	}
 
-	virtual void fill_tips(vecTips& tips, u32 mode) override {
-
-		if (IsGameTypeSingle())
-		{
-			if (!ai().get_alife())
-			{
-				Msg("! ALife simulator is needed to perform specified command!");
-				return;
-			}
-		}
-
-		for (CInifile::Sect& sect : pSettings->sections())
-		{
-			if (sect.line_exist("class"))
-			{
-				tips.push_back(sect.Name.c_str());
-			}
-		}
-	}
-};
-
-class CCC_GSpawnOnDistance : public IConsole_Command
-{
-public:
-	CCC_GSpawnOnDistance(const char* N)
-		: IConsole_Command(N)
+	// Выбирает точку по прицелу, ограничивая заданную дистанцию ближайшим препятствием.
+	static bool SelectPosition(CActor* ActorOwner, float Distance, Fvector& Position)
 	{
+		Fvector Direction = Device.vCameraDirection;
+		if (!_valid(Device.vCameraPosition) || !_valid(Direction) || Direction.square_magnitude() < EPS_L)
+		{
+			return false;
+		}
+		Direction.normalize();
+		float SpawnDistance = Distance > 0.f ? Distance : HUD().GetCurrentRayQuery().range;
+		if (!_valid(SpawnDistance) || SpawnDistance < 0.f)
+		{
+			return false;
+		}
+		collide::rq_result Hit;
+		if (Distance > 0.f && Level().ObjectSpace.RayPick(Device.vCameraPosition, Direction, SpawnDistance, collide::rqtBoth, Hit, ActorOwner))
+		{
+			SpawnDistance = Hit.range;
+		}
+		Position.mad(Device.vCameraPosition, Direction, SpawnDistance);
+		return true;
 	}
 
-	virtual void Execute(const char* args) override
+	// Создаёт один ALife-объект и применяет штатную настройку зоны либо оружия.
+	static bool SpawnObject(const xr_string& Section, const Fvector& Position, u32 Vertex, u32 GameVertex)
 	{
-		if (!IsGameTypeSingle())
+		CSE_Abstract* SpawnedObject;
+		CSE_ALifeAnomalousZone* Anomaly;
+		CSE_ALifeItemWeapon* Weapon;
+		SpawnedObject = Level().Server->game->alife().spawn_item(Section.c_str(), Position, Vertex, GameVertex, ALife::INVALID_OBJECT_ID);
+		if (!SpawnedObject || !SpawnedObject->cast_alife_object())
 		{
-			return;
+			return false;
 		}
-
-		CActor* actor = Level().CurrentEntity() != nullptr ? Level().CurrentEntity()->cast_actor() : nullptr;
-		if (actor == nullptr)
+		SpawnedObject->cast_alife_object()->use_ai_locations(false);
+		Anomaly = SpawnedObject->cast_anomalous_zone();
+		if (Anomaly)
 		{
-			return;
+			CShapeData::shape_def Shape = {};
+			Shape.data.sphere.P.set(0.f, 0.f, 0.f);
+			Shape.data.sphere.R = 3.f;
+			Shape.type = CShapeData::cfSphere;
+			Anomaly->assign_shapes(&Shape, 1);
+			Anomaly->m_owner_id = u32(-1);
+			Anomaly->m_space_restrictor_type = RestrictionSpace::eRestrictorTypeNone;
 		}
-
-		int count = 1;
-		int distance = -1;
-		string128 nameSection = {};
-		auto sc = sscanf_s(args, "%s %d %d", nameSection, (unsigned)sizeof(nameSection), &count, &distance);
-		if (sc > 3)
+		Weapon = SpawnedObject->cast_item_weapon();
+		if (Weapon)
 		{
-			Msg("! Failed to parse input");
-			return;
-		}
-
-		if (!pSettings->section_exist(nameSection))
-		{
-			Msg("! Can't find section: %s", nameSection);
-			return;
-		}
-
-		if (pSettings->line_exist(nameSection, "visual"))
-		{
-			if (!isValidSection(nameSection))
+			if (Weapon->m_scope_status == ALife::eAddonAttachable)
 			{
-				std::string_view visual = pSettings->r_string(nameSection, "visual");
-				Msg("! Failed insert [%s] visual not found", nameSection);
-				return;
+				Weapon->m_addon_flags.set(CSE_ALifeItemWeapon::eWeaponAddonScope, true);
+			}
+			if (Weapon->m_silencer_status == ALife::eAddonAttachable)
+			{
+				Weapon->m_addon_flags.set(CSE_ALifeItemWeapon::eWeaponAddonSilencer, true);
+			}
+			if (Weapon->m_grenade_launcher_status == ALife::eAddonAttachable)
+			{
+				Weapon->m_addon_flags.set(CSE_ALifeItemWeapon::eWeaponAddonGrenadeLauncher, true);
 			}
 		}
-
-		float dst = HUD().GetCurrentRayQuery().range;
-
-		if (distance == -1 || dst <= distance)
-		{
-			distance = dst;
-		}
-
-		Fvector3 point = point.mad(Device.vCameraPosition, Device.vCameraDirection, distance);
-
-		for (size_t i = 0; i < count; i++)
-		{
-			auto item = Level().Server->game->alife().spawn_item(nameSection, point, 0, actor->ai_location().game_vertex_id(), u16(-1));
-			item->cast_alife_object()->use_ai_locations(false);
-
-			auto anomaly = item->cast_anomalous_zone();
-			if (anomaly != nullptr)
-			{
-				CShapeData::shape_def _shape{};
-				_shape.data.sphere.P.set(0.0f, 0.0f, 0.0f);
-				_shape.data.sphere.R = 3;
-				_shape.type = CShapeData::cfSphere;
-
-				anomaly->assign_shapes(&_shape, 1);
-				anomaly->m_owner_id = u32(-1);
-				anomaly->m_space_restrictor_type = RestrictionSpace::eRestrictorTypeNone;
-			}
-		}
-		
-	}
-
-	virtual void fill_tips(vecTips& tips, u32 mode) override
-	{
-		if (IsGameTypeSingle())
-		{
-			if (!ai().get_alife())
-			{
-				Msg("! ALife simulator is needed to perform specified command!");
-				return;
-			}
-		}
-
-		for (CInifile::Sect& sect : pSettings->sections())
-		{
-			if (sect.line_exist("class"))
-			{
-				tips.push_back(sect.Name.c_str());
-			}
-		}
+		return true;
 	}
 };
 
@@ -2660,7 +2643,6 @@ void CCC_RegisterCommands()
 	CMD1(CCC_DisableInfo, "d_info");
 	CMD1(CCC_GiveMoney, "g_money");
 	CMD1(CCC_GSpawn, "g_spawn");
-	CMD1(CCC_GSpawnOnDistance, "g_spawn_on_distance");
 	CMD1(CCC_GSpawnToInventory, "g_spawn_inv");
 	CMD1(CCC_SpawnSquad, "g_spawn_squad");
 	CMD1(CCC_SetCharComm, "g_character_community");

@@ -62,7 +62,7 @@ void CELCrowFeedingBehavior::Update(float DeltaTime)
 											 1000.f);
 	}
 
-	Validation.Reason = State.Rest == EELCrowRest::Corpse ? "Feeding at corpse" : "Seed foraging";
+	Validation.Reason = State.Rest == EELCrowRest::Corpse ? "Кормление у тела" : "Поиск семян";
 }
 // Возвращает состояние выполнения схемы, включая ожидание, завершение и сбои.
 SELBehaviorValidation CELCrowFeedingBehavior::Validate() const
@@ -72,7 +72,7 @@ SELBehaviorValidation CELCrowFeedingBehavior::Validate() const
 		CEntityAlive* Corpse = State.Corpse < u16(-1) ? ExtendedEntityes::FindEntity(u16(State.Corpse)) : nullptr;
 		if (!Corpse || Corpse->g_Alive() || !CELSharedCrowMemory::Instance().HasFoodClaim(Adapter.Monster().ID(), u16(State.Corpse)))
 		{
-			return {EELBehaviorState::InvalidTarget, "Food disappeared"};
+			return {EELBehaviorState::InvalidTarget, "Пища исчезла"};
 		}
 	}
 	return CELCrowRestBehavior::Validate();

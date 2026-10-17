@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ai/ExtendedEntityesLogic/Debug/Debug.h"
 #include <algorithm>
 #include "ai/ExtendedEntityesLogic/EntityesCategory/Flying/CELFlyingMovement.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedAnomalies.h"
@@ -133,6 +134,19 @@ void CELFlyingMovement::SetRoute(SELNavigationResult Route)
 // Обновляет движение по проверенной воздушной траектории и обрабатывает текущий результат выполнения.
 void CELFlyingMovement::Update(float DeltaTime)
 {
+	if (CELSharedDebug::Instance().IsDrawEnabled() && !ActiveRoute.Points.empty())
+	{
+		SELDebugEvent Event;
+		Event.Kind = EELDebugEvent::Route;
+		Event.OwnerIdentifier = Adapter.Monster().ID();
+		Event.Start = Adapter.Monster().Position();
+		Event.Finish = ActiveRoute.Points.back();
+		Event.Points = ActiveRoute.Points;
+		Event.Radius = .25f;
+		Event.Label = "Подготовленный маршрут";
+		CELSharedDebug::Instance().PublishEvent(std::move(Event));
+	}
+
 	if (!HasRoute() || DeltaTime <= 0.f)
 	{
 		Velocity.set(0.f, 0.f, 0.f);
@@ -216,7 +230,15 @@ void CELFlyingMovement::Update(float DeltaTime)
 	clamp(HeadingStep, -Settings.TurnRate * DeltaTime, Settings.TurnRate * DeltaTime);
 	Heading = angle_normalize_signed(Heading + HeadingStep);
 	Pitch += (DesiredPitch - Pitch) * Response;
-	Bank += (std::max(-Settings.MaximumBank, std::min(Settings.MaximumBank, -Turn)) - Bank) * Response;
+	float DesiredBank = std::max(-Settings.MaximumBank, std::min(Settings.MaximumBank, -Turn));
+	if (ContactTarget != u16(-1))
+	{
+		// Перед касанием выравниваем тело: крен не должен уносить высоко смещённую модель вбок от контакта.
+		float ContactBlend = NewPosition.distance_to(ActiveRoute.Points.back()) / std::max(Settings.CollisionRadius, Speed * Settings.InterruptLookahead);
+		clamp(ContactBlend, 0.f, 1.f);
+		DesiredBank *= ContactBlend;
+	}
+	Bank += (DesiredBank - Bank) * Response;
 	OwnerMonster.XFORM().setHPB(Heading, Pitch, Bank);
 	OwnerMonster.Position() = NewPosition;
 	OwnerMonster.movement().m_body.current.yaw = Heading;

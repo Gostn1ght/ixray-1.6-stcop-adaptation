@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "Level.h"
+#include "../Debug/Debug.h"
+#include "CELNativeEntityes.h"
 #include "ai/ExtendedEntityesLogic/CoreComponent/TExtendedEntityesLogic.h"
 #include "ai/ExtendedEntityesLogic/CoreComponent/CELSharedFactory.h"
 #include "ai/ExtendedEntityesLogic/CELSharedSettings.h"
@@ -90,6 +92,7 @@ bool TExtendedEntityesLogic::IsActive() const
 // Обновляет личные наблюдения владельца с учётом доступного бюджета.
 bool TExtendedEntityesLogic::Observe()
 {
+	CELSharedDebugScope ProfileScope(OwnerMonster && ExtendedEntityesClasses::IsFlying(OwnerMonster->CLS_ID) ? EELDebugGroup::Flying : EELDebugGroup::Ground, EELDebugStage::Perception);
 	if (!CELSharedSettings::IsEnabled())
 	{
 		Detach();
@@ -117,6 +120,7 @@ void TExtendedEntityesLogic::Serialize(ISaveObject& Object)
 // Обновляет ECS-компонент расширенной логики и обрабатывает текущий результат выполнения.
 EELControl TExtendedEntityesLogic::Update(float DeltaTime)
 {
+	CELSharedDebugScope ProfileScope(OwnerMonster && ExtendedEntityesClasses::IsFlying(OwnerMonster->CLS_ID) ? EELDebugGroup::Flying : EELDebugGroup::Ground, EELDebugStage::Behavior);
 	if (!IsActive())
 	{
 		return EELControl::Native;
@@ -129,6 +133,7 @@ EELControl TExtendedEntityesLogic::Update(float DeltaTime)
 // Выполняет покадровую часть активной схемы без повторного выбора поведения.
 void TExtendedEntityesLogic::FrameUpdate(float DeltaTime)
 {
+	CELSharedDebugScope ProfileScope(OwnerMonster && ExtendedEntityesClasses::IsFlying(OwnerMonster->CLS_ID) ? EELDebugGroup::Flying : EELDebugGroup::Ground, EELDebugStage::Movement);
 	if (IsActive())
 	{
 		Logic->FrameUpdate(DeltaTime);
@@ -138,9 +143,19 @@ void TExtendedEntityesLogic::FrameUpdate(float DeltaTime)
 // Обрабатывает принятое звуковое событие по настроенным правилам реакции.
 void TExtendedEntityesLogic::Hear(const SELSoundEvent& SoundEvent)
 {
+	CELSharedDebugScope ProfileScope(OwnerMonster && ExtendedEntityesClasses::IsFlying(OwnerMonster->CLS_ID) ? EELDebugGroup::Flying : EELDebugGroup::Ground, EELDebugStage::Hearing);
 	if (IsActive())
 	{
 		Logic->Hear(SoundEvent);
+	}
+}
+
+// Убирает боевую цель, сохраняя исследование её звуков.
+void TExtendedEntityesLogic::ForgetTarget(u16 ObjectIdentifier)
+{
+	if (Logic)
+	{
+		Logic->ForgetTarget(ObjectIdentifier);
 	}
 }
 
@@ -156,6 +171,7 @@ void TExtendedEntityesLogic::RemoveObject(u16 ObjectIdentifier)
 // Принимает сведения другого источника с проверкой правил передачи.
 bool TExtendedEntityesLogic::Accept(const SELObservation& Observation, CBaseMonster& SourceMonster)
 {
+	CELSharedDebugScope ProfileScope(OwnerMonster && ExtendedEntityesClasses::IsFlying(OwnerMonster->CLS_ID) ? EELDebugGroup::Flying : EELDebugGroup::Ground, EELDebugStage::Sharing);
 	return IsActive() && Logic->Accept(Observation, SourceMonster);
 }
 

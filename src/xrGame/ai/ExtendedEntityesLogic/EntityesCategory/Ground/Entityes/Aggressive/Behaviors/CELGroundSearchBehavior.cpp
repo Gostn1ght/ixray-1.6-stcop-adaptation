@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ai/ExtendedEntityesLogic/Debug/Debug.h"
 #include <cmath>
 #include "ai/ExtendedEntityesLogic/EntityesCategory/Ground/Entityes/Aggressive/Behaviors/CELGroundSearchBehavior.h"
 #include "ai/ExtendedEntityesLogic/Interfaces/IELAdapter.h"
@@ -31,7 +32,7 @@ void CELGroundSearchBehavior::Update(float DeltaTime)
 	if (s32(Device.dwTimeGlobal - SearchUntil) >= 0)
 	{
 		Movement.Stop();
-		Validation = {EELBehaviorState::Completed, "Search finished"};
+		Validation = {EELBehaviorState::Completed, "Поиск завершён"};
 		return;
 	}
 	if (Inspection.Update(Profile.CanInspect))
@@ -39,7 +40,7 @@ void CELGroundSearchBehavior::Update(float DeltaTime)
 		Movement.Stop();
 		ProgressTime = Device.dwTimeGlobal;
 		HasMoveCommand = false;
-		Validation = {EELBehaviorState::Running, "Inspecting trail"};
+		Validation = {EELBehaviorState::Running, "Изучение следа"};
 		return;
 	}
 	if (SearchPhase == 0 || (Device.dwTimeGlobal >= NextPoint && Adapter.Monster().Position().distance_to_sqr(SearchPosition) < 2.25f))
@@ -63,9 +64,20 @@ void CELGroundSearchBehavior::Update(float DeltaTime)
 		NextPoint = Device.dwTimeGlobal + Random.randI(1500u, 3001u);
 		++SearchPhase;
 	}
-	Validation = {EELBehaviorState::Running, "Search around point"};
+	if (CELSharedDebug::Instance().IsDrawEnabled())
+	{
+		SELDebugEvent Event;
+		Event.Kind = EELDebugEvent::Search;
+		Event.OwnerIdentifier = Adapter.Monster().ID();
+		Event.Start = Adapter.Monster().Position();
+		Event.Finish = SearchPosition;
+		Event.Radius = .4f;
+		Event.Label = "Поиск у последней известной точки";
+		CELSharedDebug::Instance().PublishEvent(std::move(Event));
+	}
+	Validation = {EELBehaviorState::Running, "Поиск вокруг точки"};
 	if (!Move(SearchPosition, SearchVertex, false))
 	{
-		Validation = {EELBehaviorState::Blocked, "Search point blocked"};
+		Validation = {EELBehaviorState::Blocked, "Точка поиска недоступна"};
 	}
 }

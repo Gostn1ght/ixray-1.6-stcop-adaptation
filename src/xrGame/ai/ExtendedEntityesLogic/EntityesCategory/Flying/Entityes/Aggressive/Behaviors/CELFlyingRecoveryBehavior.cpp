@@ -47,7 +47,7 @@ void CELFlyingRecoveryBehavior::Update(float DeltaTime)
 		CELFlyingBehaviorBase::Update(DeltaTime);
 		return;
 	}
-	Validation = {Movement.HasRoute() ? EELBehaviorState::Running : EELBehaviorState::Completed, Movement.HasRoute() ? "Leaving blocked flight corridor" : "Flight recovered"};
+	Validation = {Movement.HasRoute() ? EELBehaviorState::Running : EELBehaviorState::Completed, Movement.HasRoute() ? "Выход из перекрытого коридора" : "Полёт восстановлен"};
 }
 // Выбирает ограниченное восстановление после сбоя либо освобождает схему.
 EELRecovery CELFlyingRecoveryBehavior::Recover(const SELBehaviorValidation& Failure)

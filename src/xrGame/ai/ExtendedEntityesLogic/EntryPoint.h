@@ -25,7 +25,7 @@ void PublishHudSound(const CObject* SourceObject, const HUD_SOUND_ITEM& Sound, c
 void PublishExplosion(const CObject* SourceObject, const Fvector& SoundPosition);
 void PublishJump(const CObject* SourceObject, const Fvector& SoundPosition);
 void PublishMelee(const CObject* SourceObject, const Fvector& SoundPosition);
-void Hear(CBaseMonster& OwnerMonster, CObject* SourceObject, u32 SoundType, const Fvector& SoundPosition, float Power);
+bool Hear(CBaseMonster& OwnerMonster, CObject* SourceObject, u32 SoundType, const Fvector& SoundPosition, float Power);
 bool HandlesSharing(CBaseMonster& OwnerMonster);
 CEntityAlive* PreferredEnemy(CBaseMonster& OwnerMonster);
 template <typename TEnemyMap>
@@ -41,6 +41,7 @@ bool SelectEnemy(CBaseMonster& OwnerMonster, TEnemyMap& Enemies, typename TEnemy
 bool Transfer(CBaseMonster& ReceiverMonster, CBaseMonster* SourceMonster);
 bool Deliver(u16 ReceiverIdentifier, CBaseMonster& SourceMonster, const SELObservation& Observation);
 CEntityAlive* FindEntity(u16 ObjectIdentifier);
+bool IsIgnored(const CEntityAlive& Entity);
 const xr_vector<u16>& Owners();
 u32 OwnerGeneration(u16 OwnerIdentifier);
 CELSharedPerceptionBudget& PerceptionBudget();

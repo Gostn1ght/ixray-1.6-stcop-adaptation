@@ -41,6 +41,7 @@ void CELSharedSettings::Initialize()
 		WorkSettings.PerceptionRays = READ_IF_EXISTS(SystemSettings.get(), r_u32, "monsters_logic", "MonsterBehaviorRaysPerFrame", 16u);
 		WorkSettings.SpatialQueries = READ_IF_EXISTS(SystemSettings.get(), r_u32, "monsters_logic", "MonsterBehaviorQueriesPerFrame", 2u);
 		WorkSettings.SharingSessions = READ_IF_EXISTS(SystemSettings.get(), r_u32, "monsters_logic", "ExtendedSharingSessionsPerFrame", 12u);
+		WorkSettings.TargetAssignments = READ_IF_EXISTS(SystemSettings.get(), r_u32, "monsters_logic", "ExtendedTargetAssignmentsPerFrame", 64u);
 		WorkSettings.SharingTransfers = READ_IF_EXISTS(SystemSettings.get(), r_u32, "monsters_logic", "ExtendedSharingTransfersPerFrame", 32u);
 		WorkSettings.NavigationCaptureNodes = READ_IF_EXISTS(SystemSettings.get(), r_u32, "monsters_logic", "MonsterBehaviorNodesPerFrame", 72u);
 		WorkSettings.NavigationSteps = READ_IF_EXISTS(SystemSettings.get(), r_u32, "monsters_logic", "ExtendedNavigationStepsPerFrame", 256u);
@@ -61,6 +62,7 @@ void CELSharedSettings::Initialize()
 		clamp(WorkSettings.PerceptionRays, 1u, 64u);
 		clamp(WorkSettings.SpatialQueries, 1u, 8u);
 		clamp(WorkSettings.SharingSessions, 1u, 64u);
+		clamp(WorkSettings.TargetAssignments, 1u, 1024u);
 		clamp(WorkSettings.SharingTransfers, 1u, 256u);
 		clamp(WorkSettings.NavigationCaptureNodes, 8u, 256u);
 		clamp(WorkSettings.NavigationSteps, 16u, 2048u);

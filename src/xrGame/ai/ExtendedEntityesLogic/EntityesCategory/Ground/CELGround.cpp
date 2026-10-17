@@ -4,6 +4,7 @@
 #include "ai/ExtendedEntityesLogic/Debug/Debug.h"
 #include "ai/monsters/basemonster/base_monster.h"
 #include "ai_monster_space.h"
+#include "CELGroundMovement.h"
 
 // Связывает общую логику наземной категории с необходимыми службами и состоянием владельца.
 CELGround::CELGround(xr_unique_ptr<IELAdapter> OwnerAdapter, const SELPerceptionProfile& OwnerProfile) : CELComponentBase(std::move(OwnerAdapter), OwnerProfile), BehaviorManager(*this, *Adapter, Profile) {}
@@ -36,7 +37,7 @@ EELControl CELGround::UpdateTarget(const SELObservation& Observation, float Delt
 // Выполняет покадровую часть активной схемы без повторного выбора поведения.
 void CELGround::FrameUpdate(float DeltaTime)
 {
-	if (!HasAttached || !CELSharedDebug::Instance().IsEnabled())
+	if (!HasAttached || !CELSharedDebug::Instance().IsDrawEnabled())
 	{
 		return;
 	}
@@ -55,4 +56,28 @@ void CELGround::FrameUpdate(float DeltaTime)
 	Record.State = BehaviorManager.GetValidation().Reason;
 	Record.IsAttacking = Adapter->Monster().anim().m_tAction == ACT_ATTACK;
 	CELSharedDebug::Instance().Publish(std::move(Record));
+}
+
+// Прекращает преследование скрытой цели без отмены слухового исследования.
+void CELGround::ForgetTarget(u16 ObjectIdentifier)
+{
+	if (TargetIdentifier == ObjectIdentifier)
+	{
+		BehaviorManager.Clear();
+		CELGroundMovement Movement(*Adapter);
+		Movement.Stop();
+	}
+	CELComponentBase::ForgetTarget(ObjectIdentifier);
+}
+
+// Отменяет преследование удалённой либо игнорируемой цели вместе с подготовленным маршрутом.
+void CELGround::RemoveObject(u16 ObjectIdentifier)
+{
+	if (TargetIdentifier == ObjectIdentifier || Hearing.IsReactingTo(ObjectIdentifier))
+	{
+		BehaviorManager.Clear();
+		CELGroundMovement Movement(*Adapter);
+		Movement.Stop();
+	}
+	CELComponentBase::RemoveObject(ObjectIdentifier);
 }

@@ -81,7 +81,7 @@ void CELCrowRestBehavior::Update(float DeltaTime)
 	PollStep();
 	if (State.Remaining <= 0.f)
 	{
-		Validation = {EELBehaviorState::Completed, "Rest finished"};
+		Validation = {EELBehaviorState::Completed, "Отдых завершён"};
 		return;
 	}
 	if (!HasPendingStep && StepProgress >= 1.f && !Animation.IsPecking() && (State.Rest == EELCrowRest::Ground || State.Rest == EELCrowRest::Night) && s32(Device.dwTimeGlobal - NextStep) >= 0)
@@ -91,12 +91,12 @@ void CELCrowRestBehavior::Update(float DeltaTime)
 	}
 	if (HasPendingStep)
 	{
-		Validation = {EELBehaviorState::WaitingForResult, "Checking ground step"};
+		Validation = {EELBehaviorState::WaitingForResult, "Проверка наземного шага"};
 		return;
 	}
-	Validation = {EELBehaviorState::Running, State.Rest == EELCrowRest::Corpse ? "Feeding at corpse" : State.Rest == EELCrowRest::Shelter ? "Sheltered"
-																								   : State.Rest == EELCrowRest::Night	  ? "Night rest"
-																																		  : "Resting"};
+	Validation = {EELBehaviorState::Running, State.Rest == EELCrowRest::Corpse ? "Кормление у тела" : State.Rest == EELCrowRest::Shelter ? "В укрытии"
+																								  : State.Rest == EELCrowRest::Night	 ? "Ночной отдых"
+																																		 : "Resting"};
 }
 // Выполняет покадровую часть активной схемы без повторного выбора поведения.
 void CELCrowRestBehavior::FrameUpdate(float DeltaTime)

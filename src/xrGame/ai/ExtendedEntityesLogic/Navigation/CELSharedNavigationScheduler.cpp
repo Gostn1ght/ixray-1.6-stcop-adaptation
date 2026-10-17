@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "../Debug/Debug.h"
 #include <algorithm>
 #include "ai/ExtendedEntityesLogic/Navigation/CELSharedNavigationScheduler.h"
 #include "ai/ExtendedEntityesLogic/CELSharedSettings.h"
@@ -78,6 +79,7 @@ bool CELSharedNavigationScheduler::Take(const SELNavigationIdentity& Identity, S
 // Выполняет ограниченную порцию фоновых расчётов только по собственным снимкам.
 void CELSharedNavigationScheduler::Process()
 {
+	CELSharedDebugScope ProfileScope(EELDebugGroup::Shared, EELDebugStage::Worker);
 	// One bounded delegate on the existing game thread. Inputs are owned snapshots.
 	xrCriticalSectionGuard Guard(QueueLock);
 	Budget.BeginFrame(Device.dwFrame);
@@ -108,6 +110,7 @@ void CELSharedNavigationScheduler::Process()
 // Выполняет один ограниченный шаг расширения поисковых данных.
 void CELSharedNavigationScheduler::Expand(STask& Task)
 {
+	CELSharedDebugScope ProfileScope(Task.Request.IsFlying ? EELDebugGroup::Flying : EELDebugGroup::Ground, EELDebugStage::Worker);
 	if (Task.Request.IsFlying && (Task.Request.Graph.empty() || !Task.CurvePath.empty()))
 	{
 		ExpandCurve(Task);

@@ -54,12 +54,12 @@ void CELCrowLandingBehavior::Update(float DeltaTime)
 {
 	if (Movement.WasBlocked())
 	{
-		Validation = {EELBehaviorState::Blocked, "Landing obstacle ahead"};
+		Validation = {EELBehaviorState::Blocked, "Препятствие перед посадкой"};
 		return;
 	}
 	if (Phase == 2)
 	{
-		Validation = {EELBehaviorState::Completed, "Landed"};
+		Validation = {EELBehaviorState::Completed, "Посадка завершена"};
 		return;
 	}
 	if (ProgressPosition.distance_to_sqr(Adapter.Monster().Position()) > .01f)
@@ -95,7 +95,7 @@ void CELCrowLandingBehavior::Update(float DeltaTime)
 		if (Phase == 2)
 		{
 			Movement.Stop();
-			Validation = {EELBehaviorState::Completed, "Landed"};
+			Validation = {EELBehaviorState::Completed, "Посадка завершена"};
 			return;
 		}
 	}
@@ -103,22 +103,22 @@ void CELCrowLandingBehavior::Update(float DeltaTime)
 	{
 		Request();
 	}
-	Validation = {Movement.HasRoute() ? EELBehaviorState::Running : EELBehaviorState::WaitingForResult, "Landing approach"};
+	Validation = {Movement.HasRoute() ? EELBehaviorState::Running : EELBehaviorState::WaitingForResult, "Заход на посадку"};
 }
 // Возвращает состояние выполнения схемы, включая ожидание, завершение и сбои.
 SELBehaviorValidation CELCrowLandingBehavior::Validate() const
 {
 	if (Navigation.WasBlocked() || Movement.WasBlocked())
 	{
-		return {EELBehaviorState::Blocked, "Landing corridor blocked"};
+		return {EELBehaviorState::Blocked, "Посадочный коридор перекрыт"};
 	}
 	if (Device.dwTimeGlobal - StartedAt > u32(Settings.LandingLimit * 1000.f))
 	{
-		return {EELBehaviorState::NoProgress, "Landing deadline"};
+		return {EELBehaviorState::NoProgress, "Истёк срок посадки"};
 	}
 	if (HasActiveRoute && Device.dwTimeGlobal - ProgressAt > u32(Settings.LandingStall * 1000.f))
 	{
-		return {EELBehaviorState::NoProgress, "Landing stalled"};
+		return {EELBehaviorState::NoProgress, "Нет продвижения при посадке"};
 	}
 	return Validation;
 }

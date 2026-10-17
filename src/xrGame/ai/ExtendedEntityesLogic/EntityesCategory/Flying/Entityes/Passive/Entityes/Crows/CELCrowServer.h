@@ -22,7 +22,7 @@ public:
 			if (Version != 1 && Version != 2)
 			{
 				State = SELCrowState();
-				Msg("! Extended crow: unsupported offline state version %u", u32(Version));
+				Msg("! Ворона: неподдерживаемая версия сохранённого состояния %u", u32(Version));
 				return;
 			}
 			u8 Rest = u8(State.Rest);

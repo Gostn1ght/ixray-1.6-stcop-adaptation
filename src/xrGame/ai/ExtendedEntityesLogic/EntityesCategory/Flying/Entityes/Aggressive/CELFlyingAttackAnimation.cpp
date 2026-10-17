@@ -27,7 +27,7 @@ void CELFlyingAttackAnimation::Play(const shared_str& Cycle)
 	}
 	else
 	{
-		Msg("! [ExtendedEntityesLogic] Missing flight animation '%s' in '%s'", Cycle.c_str(), Adapter.Monster().cNameSect().c_str());
+		Msg("! [ExtendedEntityesLogic] Нет полётной анимации '%s' в '%s'", Cycle.c_str(), Adapter.Monster().cNameSect().c_str());
 		const MotionID Fallback = Skeleton->ID_Cycle_Safe(Settings.FlightAnimation.c_str());
 		if (Fallback.valid())
 		{

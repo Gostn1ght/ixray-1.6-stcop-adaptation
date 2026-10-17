@@ -35,7 +35,7 @@ bool CELFlyingRestBehavior::FindSupport()
 	const EELGeometryResult State = CELFlyingGeometry::QueryLanding(From, Distance, Settings.CollisionRadius, Settings.CollisionCenterHeight, GroundOffset, Settings.LandingMinimumNormalY, Settings.LandingHeightTolerance, Contact, &Adapter.Monster());
 	if (State != EELGeometryResult::Clear)
 	{
-		Validation = {State == EELGeometryResult::Pending ? EELBehaviorState::WaitingForBudget : EELBehaviorState::Blocked, State == EELGeometryResult::Pending ? "Rest footprint budget" : "No safe rest footprint"};
+		Validation = {State == EELGeometryResult::Pending ? EELBehaviorState::WaitingForBudget : EELBehaviorState::Blocked, State == EELGeometryResult::Pending ? "Ожидание проверки места отдыха" : "Нет безопасного места отдыха"};
 		return false;
 	}
 	Phase = EPhase::Approach;
@@ -72,7 +72,7 @@ void CELFlyingRestBehavior::UpdateRest()
 {
 	if (s32(Device.dwTimeGlobal - RestUntil) >= 0)
 	{
-		Validation = {EELBehaviorState::Completed, "Flight rest finished"};
+		Validation = {EELBehaviorState::Completed, "Отдых завершён"};
 		return;
 	}
 	if (s32(Device.dwTimeGlobal - NextSupportCheck) >= 0)
@@ -84,17 +84,17 @@ void CELFlyingRestBehavior::UpdateRest()
 		const EELGeometryResult State = CELFlyingGeometry::QueryLanding(From, Settings.LandingHeight + Settings.CollisionCenterHeight + Settings.CollisionRadius, Settings.CollisionRadius, Settings.CollisionCenterHeight, GroundOffset, Settings.LandingMinimumNormalY, Settings.LandingHeightTolerance, CurrentContact, &Adapter.Monster());
 		if (State == EELGeometryResult::Pending)
 		{
-			Validation = {EELBehaviorState::WaitingForBudget, "Rest support budget"};
+			Validation = {EELBehaviorState::WaitingForBudget, "Ожидание проверки опоры"};
 			return;
 		}
 		if (State == EELGeometryResult::Blocked || CurrentContact.distance_to_sqr(Contact) > Settings.GroundClearance * Settings.GroundClearance)
 		{
-			Validation = {EELBehaviorState::Blocked, "Rest support changed"};
+			Validation = {EELBehaviorState::Blocked, "Опора для отдыха изменилась"};
 			return;
 		}
 		NextSupportCheck = Device.dwTimeGlobal + Settings.RestSupportInterval;
 	}
-	Validation = {EELBehaviorState::Running, "Resting on checked support"};
+	Validation = {EELBehaviorState::Running, "Отдых на проверенной опоре"};
 }
 // Обновляет поиск опоры, посадку и отдых летуна и обрабатывает текущий результат выполнения.
 void CELFlyingRestBehavior::Update(float DeltaTime)
@@ -134,7 +134,7 @@ SELBehaviorValidation CELFlyingRestBehavior::Validate() const
 {
 	if (!Adapter.Monster().g_Alive())
 	{
-		return {EELBehaviorState::InvalidTarget, "Owner dead"};
+		return {EELBehaviorState::InvalidTarget, "Существо погибло"};
 	}
 	return Phase == EPhase::Resting ? Validation : CELFlyingBehaviorBase::Validate();
 }

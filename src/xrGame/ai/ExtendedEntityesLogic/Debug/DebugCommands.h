@@ -74,8 +74,8 @@ private:
 		}
 		void Info(TInfo& Information) override
 		{
-			xr_strcpy(Information, Kind == EKind::Logic ? "on/off/config" : Kind == EKind::Stats ? "on/off/reset"
-																								 : "on/off");
+			xr_strcpy(Information, Kind == EKind::Logic ? "on/off/config: включить / выключить / по конфигу" : Kind == EKind::Stats ? "on/off/reset: включить / выключить / сбросить замеры"
+																																	: "on/off: включить / выключить");
 		}
 		SControl Read() const
 		{

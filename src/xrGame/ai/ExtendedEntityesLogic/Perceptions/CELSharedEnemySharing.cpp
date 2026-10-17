@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "../Debug/Debug.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedEnemySharing.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedMemory.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedDeaths.h"
@@ -72,6 +73,16 @@ void CELSharedEnemySharing::Update(CBaseMonster& SourceMonster, const CELSharedM
 			SourceMonster.sound().play(MonsterSound::eMonsterSoundAggressive);
 		}
 		NextCall = CurrentTime + Profile.CallCooldown;
+		if (CELSharedDebug::Instance().IsDrawEnabled())
+		{
+			SELDebugEvent Event;
+			Event.Kind = EELDebugEvent::Call;
+			Event.OwnerIdentifier = SourceMonster.ID();
+			Event.Start = Event.Finish = SourceMonster.Position();
+			Event.Radius = Profile.SharingRadius * Profile.CallSharingRatio;
+			Event.Label = "Клич";
+			CELSharedDebug::Instance().PublishEvent(std::move(Event), 2000);
+		}
 	}
 	const xr_vector<u16>& Receivers = ExtendedEntityes::Owners();
 	u32 ReceiverCount = 0;
@@ -80,6 +91,7 @@ void CELSharedEnemySharing::Update(CBaseMonster& SourceMonster, const CELSharedM
 	CEntityAlive* ReceiverEntity;
 	SELObservation Message;
 	CEntityAlive* TrackedEntity;
+	SELDebugEvent SharingEvent;
 	while (ReceiverCount < Receivers.size() && ReceiverCount < 64)
 	{
 		ReceiverCursor %= u32(Receivers.size());
@@ -97,6 +109,11 @@ void CELSharedEnemySharing::Update(CBaseMonster& SourceMonster, const CELSharedM
 			Message = ObservationCursor < Memory.GetRecords().size() ? Memory.GetRecords()[ObservationCursor] : Bodies[ObservationCursor - Memory.GetRecords().size()];
 			++ObservationCursor;
 			++RecordCount;
+			TrackedEntity = ExtendedEntityes::FindEntity(Message.TargetIdentifier);
+			if (Message.Kind == EELObservationKind::Enemy && TrackedEntity && ExtendedEntityes::IsIgnored(*TrackedEntity))
+			{
+				continue;
+			}
 			Message.Source = EELObservationSource::Sharing;
 			Message.HasCall = HasCall;
 			Message.HasLivePosition = Profile.CanTrackLive && Message.Kind == EELObservationKind::Enemy;
@@ -108,7 +125,19 @@ void CELSharedEnemySharing::Update(CBaseMonster& SourceMonster, const CELSharedM
 					Message.Position = TrackedEntity->Position();
 				}
 			}
-			ExtendedEntityes::Deliver(Receiver->ID(), SourceMonster, Message);
+			if (ExtendedEntityes::Deliver(Receiver->ID(), SourceMonster, Message) && CELSharedDebug::Instance().IsDrawEnabled())
+			{
+				SharingEvent = SELDebugEvent();
+				SharingEvent.Kind = EELDebugEvent::Sharing;
+				SharingEvent.OwnerIdentifier = SourceMonster.ID();
+				SharingEvent.TargetIdentifier = Receiver->ID();
+				SharingEvent.Start = SourceMonster.Position();
+				SharingEvent.Finish = Receiver->Position();
+				SharingEvent.Radius = .35f;
+				SharingEvent.Label = Profile.IsWireless ? "Пси-обмен сведениями" : HasCall ? "Сарафан: клич"
+																						   : "Сарафан: контакт / зрение";
+				CELSharedDebug::Instance().PublishEvent(std::move(SharingEvent));
+			}
 		}
 	}
 }

@@ -48,7 +48,7 @@ void CELFlying::FrameUpdate(float DeltaTime)
 	}
 	Movement.Update(DeltaTime);
 	BehaviorManager.FrameUpdate(DeltaTime);
-	if (!CELSharedDebug::Instance().IsEnabled())
+	if (!CELSharedDebug::Instance().IsDrawEnabled())
 	{
 		return;
 	}
@@ -64,4 +64,26 @@ void CELFlying::FrameUpdate(float DeltaTime)
 	Record.Validation = BehaviorManager.GetValidation().State;
 	Record.State = BehaviorManager.GetValidation().Reason;
 	CELSharedDebug::Instance().Publish(std::move(Record));
+}
+
+// Прекращает преследование скрытой цели без отмены слухового исследования.
+void CELFlying::ForgetTarget(u16 ObjectIdentifier)
+{
+	if (TargetIdentifier == ObjectIdentifier)
+	{
+		ClearBehavior();
+		Movement.Stop();
+	}
+	CELComponentBase::ForgetTarget(ObjectIdentifier);
+}
+
+// Отменяет преследование удалённой либо игнорируемой цели вместе с подготовленным маршрутом.
+void CELFlying::RemoveObject(u16 ObjectIdentifier)
+{
+	if (TargetIdentifier == ObjectIdentifier || Hearing.IsReactingTo(ObjectIdentifier))
+	{
+		ClearBehavior();
+		Movement.Stop();
+	}
+	CELComponentBase::RemoveObject(ObjectIdentifier);
 }

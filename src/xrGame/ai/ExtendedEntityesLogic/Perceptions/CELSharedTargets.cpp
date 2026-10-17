@@ -19,34 +19,31 @@ xr_map<u16, SAssignment> Assignments;
 u32 LastFrame = u32(-1);
 u32 RemainingPlans = 0;
 
-// Подсчитывает назначения союзников к данной цели в заданном радиусе.
-u32 AssignedCount(u16 TargetIdentifier, IELAdapter& Adapter, float CrowdDistance)
+// Один раз собирает загрузку всех соседних союзников без отсечения первых 32 записей.
+xr_map<u16, u32> AssignedCounts(IELAdapter& Adapter, float CrowdDistance)
 {
-	u32 Count = 0;
-	u32 Checked = 0;
+	xr_map<u16, u32> Counts;
 	xr_map<u16, SAssignment>::const_iterator AssignmentIterator;
 	CEntityAlive* OwnerEntity;
 	CBaseMonster* OwnerMonster;
-	for (AssignmentIterator = Assignments.begin(); AssignmentIterator != Assignments.end() && Checked < 32; ++AssignmentIterator)
+	for (AssignmentIterator = Assignments.begin(); AssignmentIterator != Assignments.end(); ++AssignmentIterator)
 	{
-		++Checked;
-		if (AssignmentIterator->first == Adapter.Monster().ID() || AssignmentIterator->second.TargetIdentifier != TargetIdentifier || s32(Device.dwTimeGlobal - AssignmentIterator->second.Until) >= 0)
+		if (AssignmentIterator->first == Adapter.Monster().ID() || s32(Device.dwTimeGlobal - AssignmentIterator->second.Until) >= 0)
 		{
 			continue;
 		}
 		OwnerEntity = ExtendedEntityes::FindEntity(AssignmentIterator->first);
 		OwnerMonster = OwnerEntity ? smart_cast<CBaseMonster*>(OwnerEntity) : nullptr;
-		if (!OwnerMonster || AssignmentIterator->second.OwnerGeneration != ExtendedEntityes::OwnerGeneration(AssignmentIterator->first))
+		if (!OwnerMonster || !OwnerMonster->g_Alive() || AssignmentIterator->second.OwnerGeneration != ExtendedEntityes::OwnerGeneration(AssignmentIterator->first))
 		{
 			continue;
 		}
-		if (Adapter.Monster().Position().distance_to_sqr(OwnerMonster->Position()) > CrowdDistance * CrowdDistance || !CELSharedEnemySharing::CanReceive(Adapter.Monster(), *OwnerMonster))
+		if (Adapter.Monster().Position().distance_to_sqr(OwnerMonster->Position()) <= CrowdDistance * CrowdDistance && CELSharedEnemySharing::AreFriends(Adapter.Monster(), *OwnerMonster))
 		{
-			continue;
+			++Counts[AssignmentIterator->second.TargetIdentifier];
 		}
-		++Count;
 	}
-	return Count;
+	return Counts;
 }
 } // namespace ExtendedEntityesAssignments
 
@@ -57,7 +54,7 @@ const SELObservation* CELSharedTargets::Select(const CELSharedMemory& Memory, IE
 	if (LastFrame != Device.dwFrame)
 	{
 		LastFrame = Device.dwFrame;
-		RemainingPlans = 2;
+		RemainingPlans = CELSharedSettings::Work().TargetAssignments;
 	}
 	const SELPerceptionProfile& Profile = CELSharedSettings::Profile(*Adapter.Monster().cNameSect());
 	const u16 OwnerIdentifier = Adapter.Monster().ID();
@@ -74,6 +71,20 @@ const SELObservation* CELSharedTargets::Select(const CELSharedMemory& Memory, IE
 			HeldObservation = nullptr;
 		}
 	}
+	const bool CanDistribute = CELSharedSettings::CanDistributeTargets();
+	if (HeldObservation && HeldTarget && Adapter.CanSee(*HeldTarget))
+	{
+		return HeldObservation;
+	}
+	if (CanDistribute && !RemainingPlans)
+	{
+		// Без квоты не выдаём незарегистрированное назначение всей оставшейся стае.
+		return HeldObservation;
+	}
+	const xr_map<u16, u32> Counts = CanDistribute ? AssignedCounts(Adapter, Profile.TargetCrowdDistance) : xr_map<u16, u32>();
+	u32 BestAssignedCount = u32(-1);
+	u32 CandidateAssignedCount;
+	xr_map<u16, u32>::const_iterator CountIterator;
 	const SELObservation* BestObservation = nullptr;
 	float BestScore = FLT_MAX;
 	float CandidateScore;
@@ -96,19 +107,20 @@ const SELObservation* CELSharedTargets::Select(const CELSharedMemory& Memory, IE
 		if (!HasVisibleTarget && HasVision)
 		{
 			BestScore = FLT_MAX;
+			BestAssignedCount = u32(-1);
 			HasVisibleTarget = true;
 		}
 		CandidateScore = Adapter.Monster().Position().distance_to_sqr(ObservationIterator->Position);
-		if (CELSharedSettings::CanDistributeTargets() && RemainingPlans && !HeldObservation)
-		{
-			CandidateScore += 100000.f * float(AssignedCount(ObservationIterator->TargetIdentifier, Adapter, Profile.TargetCrowdDistance));
-		}
+		CountIterator = Counts.find(ObservationIterator->TargetIdentifier);
+		CandidateAssignedCount = CountIterator != Counts.end() ? CountIterator->second : 0;
+
 		if (ObservationIterator->TargetIdentifier == CurrentTarget)
 		{
 			CandidateScore *= .8f;
 		}
-		if (CandidateScore < BestScore)
+		if (CandidateAssignedCount < BestAssignedCount || (CandidateAssignedCount == BestAssignedCount && CandidateScore < BestScore))
 		{
+			BestAssignedCount = CandidateAssignedCount;
 			BestScore = CandidateScore;
 			BestObservation = &*ObservationIterator;
 		}
@@ -117,7 +129,7 @@ const SELObservation* CELSharedTargets::Select(const CELSharedMemory& Memory, IE
 	{
 		return HeldObservation;
 	}
-	if (BestObservation && RemainingPlans && CELSharedSettings::CanDistributeTargets())
+	if (BestObservation && RemainingPlans && CanDistribute)
 	{
 		--RemainingPlans;
 		Assignments[OwnerIdentifier] = {BestObservation->TargetIdentifier, Generation, Device.dwTimeGlobal + Random.randI(3000u, 5001u)};

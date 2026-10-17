@@ -10,6 +10,7 @@
 #include "ai/monsters/control_animation_base.h"
 #include "ai_monster_space.h"
 #include "ai_space.h"
+#include "EntryPoint.h"
 #include "level_graph.h"
 #include "ai/monsters/control_path_builder.h"
 
@@ -33,7 +34,7 @@ bool CELBaseAdapter::CanControl() const
 // Проверяет, является ли живая доступная сущность противником владельца.
 bool CELBaseAdapter::IsEnemy(const CEntityAlive& Candidate) const
 {
-	return Candidate.g_Alive() && !Candidate.getDestroy() && !Candidate.m_bEntityIgnoredByMonsters && OwnerMonster.EnemyMan.is_enemy(&Candidate);
+	return !ExtendedEntityes::IsIgnored(Candidate) && Candidate.g_Alive() && !Candidate.getDestroy() && OwnerMonster.EnemyMan.is_enemy(&Candidate);
 }
 
 // Проверяет подтверждённую штатным зрением видимость цели.

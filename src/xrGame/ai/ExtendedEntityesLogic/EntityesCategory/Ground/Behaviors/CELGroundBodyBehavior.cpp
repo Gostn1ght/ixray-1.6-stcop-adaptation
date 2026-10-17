@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ai/ExtendedEntityesLogic/Debug/Debug.h"
 #include "ai/ExtendedEntityesLogic/EntityesCategory/Ground/Behaviors/CELGroundBodyBehavior.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedDeaths.h"
 #include "ai/ExtendedEntityesLogic/Interfaces/IELAdapter.h"
@@ -20,9 +21,21 @@ void CELGroundBodyBehavior::Enter()
 // Обновляет исследование известного тела и обрабатывает текущий результат выполнения.
 void CELGroundBodyBehavior::Update(float DeltaTime)
 {
+	if (CELSharedDebug::Instance().IsDrawEnabled())
+	{
+		SELDebugEvent Event;
+		Event.Kind = Observation.Kind == EELObservationKind::Hazard ? EELDebugEvent::Hazard : EELDebugEvent::Search;
+		Event.OwnerIdentifier = Adapter.Monster().ID();
+		Event.TargetIdentifier = Observation.TargetIdentifier;
+		Event.Start = Adapter.Monster().Position();
+		Event.Finish = Observation.Position;
+		Event.Radius = Observation.Radius > 0.f ? Observation.Radius : .5f;
+		Event.Label = "Назначено исследование тела";
+		CELSharedDebug::Instance().PublishEvent(std::move(Event));
+	}
 	if (Device.dwTimeGlobal - StartedAt > Profile.SearchMax + 5000)
 	{
-		Validation = {EELBehaviorState::NoProgress, "Body investigation deadline"};
+		Validation = {EELBehaviorState::NoProgress, "Истёк срок исследования тела"};
 		return;
 	}
 	if (Adapter.Monster().Position().distance_to_sqr(Observation.Position) < 6.25f)
@@ -41,18 +54,18 @@ void CELGroundBodyBehavior::Update(float DeltaTime)
 		if (s32(Device.dwTimeGlobal - InspectUntil) >= 0)
 		{
 			CELSharedDeaths::Release(Adapter.Monster().ID(), true);
-			Validation = {EELBehaviorState::Completed, "Body investigated"};
+			Validation = {EELBehaviorState::Completed, "Тело исследовано"};
 		}
 		else
 		{
-			Validation = {EELBehaviorState::Running, "Inspecting body"};
+			Validation = {EELBehaviorState::Running, "Осмотр тела"};
 		}
 		return;
 	}
-	Validation = {EELBehaviorState::Running, "Approaching known body"};
+	Validation = {EELBehaviorState::Running, "Подход к известному телу"};
 	if (!Move(Observation.Position, Observation.VertexIdentifier, false))
 	{
-		Validation = {EELBehaviorState::Blocked, "Body route blocked"};
+		Validation = {EELBehaviorState::Blocked, "Путь к телу перекрыт"};
 	}
 }
 

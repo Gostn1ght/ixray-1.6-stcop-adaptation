@@ -24,6 +24,9 @@
 #include "ai/monsters/basemonster/base_monster.h"
 #include "Level.h"
 #include "HudSound.h"
+#include "Actor.h"
+#include "ai_debug.h"
+#include "../../../xrSound/New/SoundMixer.h"
 #include "../xrEngine/GameMtlLib.h"
 
 namespace ExtendedEntityesRuntime
@@ -37,12 +40,51 @@ struct SWorld
 	CELSharedNavigationScheduler Navigation;
 	u32 LastFrame = u32(-1);
 	u32 ControlRevision = 0;
+	u16 IgnoredActorIdentifier = u16(-1);
 };
 // Возвращает общее состояние служб текущего игрового мира.
 SWorld& World()
 {
 	static SWorld State;
 	return State;
+}
+// Адресно отменяет знания и текущие планы о ГГ при переключении штатного игнорирования.
+void SynchronizeIgnoredActor()
+{
+	SWorld& State = World();
+	CActor* Player = Actor();
+	const u16 IgnoredIdentifier = Player && ExtendedEntityes::IsIgnored(*Player) ? u16(Player->ID()) : u16(-1);
+	if (State.IgnoredActorIdentifier == IgnoredIdentifier)
+	{
+		return;
+	}
+	State.IgnoredActorIdentifier = IgnoredIdentifier;
+	if (IgnoredIdentifier == u16(-1))
+	{
+		return;
+	}
+	xr_vector<u16>::const_iterator OwnerIdentifier;
+	CEntityAlive* OwnerEntity;
+	CBaseMonster* OwnerMonster;
+	for (OwnerIdentifier = State.OwnerIdentifiers.begin(); OwnerIdentifier != State.OwnerIdentifiers.end(); ++OwnerIdentifier)
+	{
+		OwnerEntity = ExtendedEntityes::FindEntity(*OwnerIdentifier);
+		OwnerMonster = OwnerEntity ? smart_cast<CBaseMonster*>(OwnerEntity) : nullptr;
+		if (!OwnerMonster)
+		{
+			continue;
+		}
+		if (TExtendedEntityesLogic* Component = OwnerMonster->GetComponent<TExtendedEntityesLogic>())
+		{
+			Component->ForgetTarget(IgnoredIdentifier);
+			if (Component->IsActive())
+			{
+				OwnerMonster->SoundMemory.remove_links(Player);
+				OwnerMonster->HitMemory.remove_hit_info(Player);
+				OwnerMonster->EnemyMan.update();
+			}
+		}
+	}
 }
 } // namespace ExtendedEntityesRuntime
 
@@ -149,8 +191,8 @@ void ExtendedEntityes::RemoveObject(CBaseMonster& OwnerMonster, CObject* Removed
 	}
 }
 
-// Обрабатывает принятое звуковое событие по настроенным правилам реакции.
-void ExtendedEntityes::Hear(CBaseMonster& OwnerMonster, CObject* SourceObject, u32 SoundType, const Fvector& SoundPosition, float Power)
+// Доставляет штатный звук расширению; запрещает ванильную реакцию на игнорируемый источник.
+bool ExtendedEntityes::Hear(CBaseMonster& OwnerMonster, CObject* SourceObject, u32 SoundType, const Fvector& SoundPosition, float Power)
 {
 	SELSoundEvent Event;
 	Event.SourceIdentifier = SourceObject ? SourceObject->ID() : u16(-1);
@@ -159,14 +201,17 @@ void ExtendedEntityes::Hear(CBaseMonster& OwnerMonster, CObject* SourceObject, u
 	Event.Power = Power;
 	Event.OccurredAt = Device.dwTimeGlobal;
 	CELSharedSoundEvents::Describe(SourceObject, Event);
-	if (CELSharedSoundEvents::HasPublished(Event))
-	{
-		return;
-	}
 	if (TExtendedEntityesLogic* Component = OwnerMonster.GetComponent<TExtendedEntityesLogic>())
 	{
-		Component->Hear(Event);
+		CEntityAlive* Source = FindEntity(Event.SourceIdentifier);
+		if (!CELSharedSoundEvents::HasPublished(Event))
+		{
+			Component->Hear(Event);
+		}
+		// Звук доставлен расширению как точка интереса; штатная память не должна раскрывать ГГ.
+		return Component->IsActive() && Source && IsIgnored(*Source);
 	}
+	return false;
 }
 
 // Проверяет, обслуживает ли активный компонент обмен сведениями владельца.
@@ -233,6 +278,7 @@ CELSharedNavigationScheduler& ExtendedEntityes::Navigation()
 // Обслуживает мировые очереди один раз за кадр и ставит порцию расчётов в штатный worker.
 void ExtendedEntityes::BeginFrame()
 {
+	CELSharedDebugScope ProfileScope(EELDebugGroup::Shared, EELDebugStage::World);
 	ExtendedEntityesRuntime::SWorld& State = ExtendedEntityesRuntime::World();
 	if (State.LastFrame == Device.dwFrame)
 	{
@@ -242,6 +288,7 @@ void ExtendedEntityes::BeginFrame()
 	CELSharedDebugCommands::Synchronize();
 	CELSharedSettings::Initialize();
 	State.Perception.BeginFrame(Device.dwFrame);
+	ExtendedEntityesRuntime::SynchronizeIgnoredActor();
 	if (State.ControlRevision != CELSharedSettings::Revision())
 	{
 		State.ControlRevision = CELSharedSettings::Revision();
@@ -260,6 +307,7 @@ void ExtendedEntityes::BeginFrame()
 	{
 		SELDebugFrame Frame;
 		Frame.IsLogicEnabled = CELSharedSettings::IsEnabled();
+		Frame.IgnoresActor = State.IgnoredActorIdentifier != u16(-1);
 		Frame.OwnerCount = u32(State.OwnerIdentifiers.size());
 		Frame.WorkerRequests = State.Navigation.OutstandingRequests();
 		Frame.LastWorkerMicroseconds = State.Navigation.LastSliceMicroseconds();
@@ -313,6 +361,7 @@ void ExtendedEntityes::Clear()
 	CELFlyingSettings::Clear();
 	CELCrowSettings::Clear();
 	CELSharedSettings::Clear();
+	ExtendedEntityesRuntime::World().IgnoredActorIdentifier = u16(-1);
 }
 
 // Передаёт общую очередь отладки слою отрисовки главного потока.
@@ -326,7 +375,8 @@ CEntityAlive* ExtendedEntityes::PreferredEnemy(CBaseMonster& OwnerMonster)
 {
 	if (TExtendedEntityesLogic* Component = OwnerMonster.GetComponent<TExtendedEntityesLogic>())
 	{
-		return FindEntity(Component->GetTargetIdentifier());
+		CEntityAlive* Target = FindEntity(Component->GetTargetIdentifier());
+		return Target && !IsIgnored(*Target) ? Target : nullptr;
 	}
 	return nullptr;
 }
@@ -380,6 +430,20 @@ float ExtendedEntityes::VisionTransparency(CBaseMonster& OwnerMonster, CObject* 
 	return Name && (!xr_strcmp(Name, "materials\\bush") || !xr_strcmp(Name, "materials\\bush_sux") || !xr_strcmp(Name, "materials\\leaves") || !xr_strcmp(Name, "materials\\foliage")) ? 1.f : OwnerMonster.CCreature::feel_vision_mtl_transp(Obstacle, ElementIdentifier);
 }
 
+// Проверяет общий запрет реакции на игрока для всех каналов восприятия.
+bool ExtendedEntityes::IsIgnored(const CEntityAlive& Entity)
+{
+	if (Entity.m_bEntityIgnoredByMonsters)
+	{
+		return true;
+	}
+#ifndef MASTER_GOLD
+	return smart_cast<const CActor*>(&Entity) && psAI_Flags.test(aiIgnoreActor);
+#else
+	return false;
+#endif
+}
+
 // Передаёт игровое звуковое событие в общую очередь расширения.
 void ExtendedEntityes::PublishSound(const CObject* SourceObject, u32 SoundType, const Fvector& SoundPosition, float Delay)
 {
@@ -400,7 +464,9 @@ void ExtendedEntityes::PublishHudSound(const CObject* SourceObject, const HUD_SO
 {
 	if (Sound.m_activeSnd)
 	{
-		PublishSound(SourceObject, u32(Sound.m_activeSnd->snd._g_type()), SoundPosition, Sound.m_activeSnd->delay);
+		ref_sound& ActiveSound = Sound.m_activeSnd->snd;
+		const u32 SoundType = ActiveSound._g_type() == int(sg_SourceType) ? XRay::Sound::Mixer::GetGameType(ActiveSound.slot()) : u32(ActiveSound._g_type());
+		PublishSound(SourceObject, SoundType, SoundPosition, Sound.m_activeSnd->delay);
 	}
 }
 

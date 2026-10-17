@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ai/ExtendedEntityesLogic/Debug/Debug.h"
 #include "ai/ExtendedEntityesLogic/EntityesCategory/Ground/Behaviors/CELGroundBehaviorBase.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedAnomalies.h"
 #include "ai/ExtendedEntityesLogic/Perceptions/CELSharedDeaths.h"
@@ -73,8 +74,21 @@ bool CELGroundBehaviorBase::Move(const Fvector& GoalPosition, u32 GoalVertex, bo
 		{
 			Movement.Stop();
 			Route = SELNavigationResult();
-			Validation = {EELBehaviorState::Blocked, "Route crosses an active anomaly"};
+			Validation = {EELBehaviorState::Blocked, "Маршрут пересекает известную аномалию"};
 			return false;
+		}
+
+		if (CELSharedDebug::Instance().IsDrawEnabled() && !Route.Points.empty())
+		{
+			SELDebugEvent Event;
+			Event.Kind = EELDebugEvent::Route;
+			Event.OwnerIdentifier = Adapter.Monster().ID();
+			Event.Start = Adapter.Monster().Position();
+			Event.Finish = Route.Points.back();
+			Event.Points = Route.Points;
+			Event.Radius = .25f;
+			Event.Label = "Подготовленный маршрут";
+			CELSharedDebug::Instance().PublishEvent(std::move(Event));
 		}
 		HasMoveCommand = Movement.MoveTo(Route.Points[RouteCursor], Route.Vertices[RouteCursor], IsRunning);
 		return HasMoveCommand;
@@ -84,7 +98,7 @@ bool CELGroundBehaviorBase::Move(const Fvector& GoalPosition, u32 GoalVertex, bo
 		Navigation.Prepare(GoalPosition, GoalVertex, ++PlanGeneration);
 		RetryAfter = Device.dwTimeGlobal + 1500;
 	}
-	Validation = {Navigation.IsPending() ? EELBehaviorState::WaitingForResult : EELBehaviorState::WaitingForBudget, "Route pending"};
+	Validation = {Navigation.IsPending() ? EELBehaviorState::WaitingForResult : EELBehaviorState::WaitingForBudget, "Ожидание маршрута"};
 	// Native path execution receives only prepared adjacent waypoints. Do not start
 	// a second full search on the game thread while the snapshot is queued.
 	Movement.Stop();
@@ -96,16 +110,16 @@ SELBehaviorValidation CELGroundBehaviorBase::Validate() const
 {
 	if (!Adapter.CanControl())
 	{
-		return {EELBehaviorState::InvalidTarget, "External control"};
+		return {EELBehaviorState::InvalidTarget, "Внешнее управление"};
 	}
 	if (Device.dwTimeGlobal - ProgressTime >= 3000 && HasMoveCommand)
 	{
-		return {EELBehaviorState::NoProgress, "No movement"};
+		return {EELBehaviorState::NoProgress, "Нет движения"};
 	}
 	if (!HasMoveCommand && Device.dwTimeGlobal - WaitingSince >= CELSharedSettings::Work().GroundCaptureTimeout + 500 &&
 		(Validation.State == EELBehaviorState::WaitingForResult || Validation.State == EELBehaviorState::WaitingForBudget))
 	{
-		return {EELBehaviorState::NoProgress, "Navigation preparation deadline"};
+		return {EELBehaviorState::NoProgress, "Истёк срок подготовки пути"};
 	}
 	return Validation;
 }

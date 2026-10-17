@@ -18,6 +18,7 @@ public:
 	u16 GetTargetIdentifier() const override { return TargetIdentifier; }
 	void FrameUpdate(float DeltaTime) override;
 	void Hear(const SELSoundEvent& SoundEvent) override;
+	void ForgetTarget(u16 ObjectIdentifier) override;
 	void RemoveObject(u16 ObjectIdentifier) override;
 	bool Accept(const SELObservation& Observation, CBaseMonster& SourceMonster) override;
 
