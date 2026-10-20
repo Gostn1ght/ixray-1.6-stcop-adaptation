@@ -1,46 +1,46 @@
 # NetAnomaly SDK adapter
 
-This directory is the SDK-side workspace for adapting IX-Ray tools to the NetAnomaly game. It is intentionally self-contained: the NetAnomaly project is not a submodule, dependency, or build target here.
+This adapter keeps NetAnomaly-specific developer tools beside the IX-Ray SDK fork. NetAnomaly is not a submodule, dependency, or build target. Its repository was inspected read-only to identify formats and packaging rules; no game files, assets, or source were changed by this adapter work.
 
-## Current state
+## Included tools
 
-- Based on the IX-Ray 1.6 STCOP fork.
-- Work branch: `adaptation/netanomaly-sdk`.
-- No game source, assets, or project files have been copied or changed.
-- The game-specific file formats, import/export API, and build interface have not yet been defined in this workspace.
-- First SDK plugin: `plugins/asset_inventory.py`. It scans a selected directory read-only and writes its JSON report under the user's profile in `NetAnomalySDKReports/`.
+The scripts under `plugins/` use the IX-Ray Level Editor's Python plugin interface. Install Python, then copy the scripts into the `plugins/netanomaly/` folder of a **separate IX-Ray SDK / Level Editor installation**. The editor reads the `# desc:` and `# input:` lines at the top of each script and passes the selected paths as `-argument="path"` command-line values.
 
-## Adaptation boundary
+- `asset_inventory.py` scans a selected directory without following links. It reports extensions, largest files, NetAnomaly asset roles (`resources/`, `gamedata/`, `client/scripts/`, `server/scripts/`), recognizable X-Ray DB/CFS-like headers, and the structure of `LZPACK1` protected archives. It does not decrypt or authenticate protected archives. JSON reports go to `%USERPROFILE%/NetAnomalySDKReports/`, outside the selected asset tree.
+- `room_package_check.py` validates `personal_room.room` (NCRM v2) and its optional `.camera` (NCRC v1/v2/v3) and `.pick` (NCRP v1) sidecars. It checks the runtime's header, lengths, material/vertex limits, and coordinate constraints. Missing camera data means the game uses defaults; missing pick data means room objects cannot be clicked.
+- `patch_stage_check.py` checks a staged patch against the `lzpack` input policy: allowed paths, CP1251 archive-path length, duplicate names, links, private/debug/build files, and the 850 MiB client/server volume cap. It is read-only; it does not create archives or read any key.
 
-Keep game-specific code in this adapter or in IX-Ray's SDK plugin layer. Do not add a build dependency on the NetAnomaly repository. Prefer editor plugins for workflows that can use the SDK API; change the editor or engine only when the plugin API cannot expose the required operation.
+The same scripts can run outside the editor with a Python interpreter:
 
-## Next implementation steps
+```powershell
+python .\asset_inventory.py -asset_root="D:\Game\resources"
+python .\room_package_check.py -room_file="D:\Game\gamedata\meshes\netcoop\personal_room.room"
+python .\patch_stage_check.py -stage_root="D:\PatchStage"
+```
 
-1. Define a small adapter contract for the game's asset types, validation rules, and import/export operations.
-2. Add format-specific validation and conversion tools against that contract, without linking to the game project.
-3. Add IX-Ray editor plugins only where the existing SDK API can safely support the workflow.
-4. Add format fixtures and verification only after the contract and sample data are supplied.
+For patch staging, the selected root must contain entries beneath `gamedata/`, `client/scripts/`, and/or `server/scripts/`. Shared `gamedata/` files count toward both client and server volume totals. This validator checks policy only; use the game's own release process to build and sign/protect an archive.
 
-## First plugin
+## Format notes from source inspection
 
-`plugins/asset_inventory.py` is a format-independent starter tool. In a separate IX-Ray SDK/developer installation, copy it to the Level Editor's `plugins/netanomaly/` folder, then run it from the Plugins menu and provide the asset directory. It reads file names and sizes only; it does not open or alter asset contents. Its report is written to `NetAnomalySDKReports/` in the user's profile, never into the selected asset directory or NetAnomaly project.
+- Runtime room geometry is `NCRM` version 2: 1–128 material batches, each with a NUL-terminated CP1251 texture name and 36-byte `<3f3fI2f` vertices. Each batch has a nonzero triangle-list count divisible by three and no more than 300,000 vertices. The file must end after the last batch.
+- Camera sidecars use `NCRC`: v1 has four views and a lamp; v2 adds two views and a seat; v3 adds a seat heading. The runtime accepts exact lengths of 116, 176, or 180 bytes and checks finite/ranged coordinates and non-degenerate camera directions.
+- Pick sidecars use `NCRP` v1 with five AABBs and an exact length of 132 bytes. A box with minimum greater than maximum on any axis is inactive.
+- Protected `LZPACK1` archives have a 48-byte header and 64 KiB authenticated blocks. Without the private key the inventory can check structural length only; it cannot verify block authentication.
+- Patch staging accepts only `gamedata/`, `client/scripts/`, and `server/scripts/`; it excludes `.pdb`, `.key`, `.secret`, `appdata`, `.git`, `_build`, and `netcoop_debug_*`, and caps each role's selected patch input at 850 MiB.
 
-## Build the adapted SDK
+These checks are for NetAnomaly's current custom runtime formats. They do not make IX-Ray's stock Level Editor understand the game's custom room format, nor do they edit game files.
 
-On Windows with Visual Studio 2022 and CMake installed, configure the IX-Ray SDK, editors, utilities, and native plugin targets together:
+## Build the separate IX-Ray SDK host
+
+With Visual Studio 2022 and CMake installed, configure and build the IX-Ray development host with its editors, utilities, and native plugin targets enabled:
 
 ```powershell
 cmake --preset NetAnomaly-SDK-x64-Windows
 cmake --build --preset NetAnomaly-SDK-x64-Windows-Debug
 ```
 
-The build output stays under `build/x64/NetAnomaly-SDK-Windows/`. This preset only builds IX-Ray; it does not configure or build the NetAnomaly game.
+The output stays under `build/x64/NetAnomaly-SDK-Windows/`. This preset builds IX-Ray only; it does not configure or build NetAnomaly. The three Python tools are scripts and are not compiled into native plugins.
 
-## IX-Ray SDK locations
+## Adaptation boundary
 
-- Editors: `src/Editors/` (`LevelEditor`, `ActorEditor`, `ParticleEditor`, `ShaderEditor`).
-- Level Editor plugin host: `src/Editors/LevelEditor/Plugins/`.
-- Standalone utilities: `src/utils/`.
-- SDK build switches: `IXRAY_EDITORS`, `IXRAY_UTILS`, and `IXRAY_PLUGINS` in the root CMake configuration.
-
-The first adaptation should stay on the SDK side. Engine/runtime changes should be isolated and justified by a concrete incompatibility in the game's data or behavior.
+Keep NetAnomaly-specific workflows in this adapter or the separate SDK's plugin layer. Prefer these read-only validation and inventory tools for game assets. Add an importer/exporter only when the target data contract is known and the operation can be kept outside the game checkout. Engine/runtime changes belong in a distinct, explicitly scoped task.
