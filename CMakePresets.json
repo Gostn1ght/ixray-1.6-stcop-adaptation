@@ -253,6 +253,33 @@
         },
 
         {
+            "name": "NetAnomaly-SDK-Base-Windows",
+            "displayName": "NetAnomaly-SDK-Base-Windows",
+            "hidden": true,
+            "inherits": "Engine-Base-Windows",
+            "cacheVariables": {
+                "IXRAY_UTILS": "ON",
+                "IXRAY_EDITORS": "ON",
+                "IXRAY_PLUGINS": "ON",
+                "IXRAY_MP": "OFF"
+            }
+        },
+        {
+            "name": "NetAnomaly-SDK-x64-Windows",
+            "displayName": "NetAnomaly-SDK-x64-Windows",
+            "inherits": "NetAnomaly-SDK-Base-Windows",
+            "binaryDir": "build/x64/NetAnomaly-SDK-Windows",
+            "cacheVariables": {
+                "CMAKE_GENERATOR_PLATFORM": "x64"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "intelliSenseMode": "windows-msvc-x64"
+                }
+            }
+        },
+
+        {
             "name": "Compressor-Base-Windows",
             "displayName": "Compressor-Base-Windows",
             "hidden": true,
@@ -401,6 +428,18 @@
             "name": "Editors-x64-Windows-RelWithDebInfo",
             "displayName": "Editors-x64-Windows-RelWithDebInfo",
             "configurePreset": "Editors-x64-Windows",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "NetAnomaly-SDK-x64-Windows-Debug",
+            "displayName": "NetAnomaly-SDK-x64-Windows-Debug",
+            "configurePreset": "NetAnomaly-SDK-x64-Windows",
+            "configuration": "Debug"
+        },
+        {
+            "name": "NetAnomaly-SDK-x64-Windows-RelWithDebInfo",
+            "displayName": "NetAnomaly-SDK-x64-Windows-RelWithDebInfo",
+            "configurePreset": "NetAnomaly-SDK-x64-Windows",
             "configuration": "RelWithDebInfo"
         },
         {
