@@ -1,0 +1,65 @@
+name: Build NetAnomaly SDK
+
+on:
+  push:
+    branches:
+      - adaptation/netanomaly-sdk
+    paths:
+      - '.github/workflows/build-netanomaly-sdk.yml'
+      - 'CMakePresets.json'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'src/**'
+      - 'adapters/netanomaly/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build-sdk:
+    name: Build portable Windows SDK
+    runs-on: windows-2022
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          key: NetAnomaly-SDK-NuGet-${{ hashFiles('**/Packages.config') }}
+          restore-keys: |
+            NetAnomaly-SDK-NuGet-${{ hashFiles('**/Packages.config') }}
+            NetAnomaly-SDK-NuGet-
+          path: ~/.nuget/packages
+
+      - name: Configure SDK
+        run: cmake --preset NetAnomaly-SDK-x64-Windows
+
+      - name: Build editors and utilities
+        run: cmake --build --preset NetAnomaly-SDK-x64-Windows-RelWithDebInfo --parallel 2
+
+      - name: Package portable SDK
+        run: |
+          ./adapters/netanomaly/package-sdk.ps1 `
+            -BuildRoot ./build/x64/NetAnomaly-SDK-Windows `
+            -OutputDirectory ./dist `
+            -Configuration RelWithDebInfo
+          Compress-Archive `
+            -Path ./dist/NetAnomaly-SDK `
+            -DestinationPath ./dist/NetAnomaly-SDK-win-x64.zip `
+            -CompressionLevel Optimal
+
+      - name: Upload portable SDK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: NetAnomaly-SDK-win-x64-${{ github.sha }}
+          path: dist/NetAnomaly-SDK-win-x64.zip
+          if-no-files-found: error
+          retention-days: 30

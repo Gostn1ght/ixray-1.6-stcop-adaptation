@@ -32,14 +32,16 @@ These checks are for NetAnomaly's current custom runtime formats. They do not ma
 
 ## Build the separate IX-Ray SDK host
 
-With Visual Studio 2022 and CMake installed, configure and build the IX-Ray development host with its editors, utilities, and native plugin targets enabled:
+The preset enables the editors and utilities. Native Maya/Max plugins are disabled because the NetAnomaly tools are Level Editor Python plugins and do not require DCC SDKs. With Visual Studio 2022 and CMake installed, configure and build:
 
 ```powershell
 cmake --preset NetAnomaly-SDK-x64-Windows
 cmake --build --preset NetAnomaly-SDK-x64-Windows-Debug
 ```
 
-The output stays under `build/x64/NetAnomaly-SDK-Windows/`. This preset builds IX-Ray only; it does not configure or build NetAnomaly. The three Python tools are scripts and are not compiled into native plugins.
+The output stays under `build/x64/NetAnomaly-SDK-Windows/`. This preset builds IX-Ray only; it does not configure or build NetAnomaly. The Python tools are copied into the Level Editor plugin folder when the portable SDK package is assembled.
+
+GitHub Actions builds the portable Windows ZIP from this preset. The ZIP contains editor and utility binaries, the three NetAnomaly Python plugins, and filesystem configuration templates. It does not contain game assets. To assemble the same folder locally after building, run `adapters/netanomaly/package-sdk.ps1` with the build and output directories.
 
 ## Adaptation boundary
 

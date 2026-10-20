@@ -260,7 +260,7 @@
             "cacheVariables": {
                 "IXRAY_UTILS": "ON",
                 "IXRAY_EDITORS": "ON",
-                "IXRAY_PLUGINS": "ON",
+                "IXRAY_PLUGINS": "OFF",
                 "IXRAY_MP": "OFF"
             }
         },
