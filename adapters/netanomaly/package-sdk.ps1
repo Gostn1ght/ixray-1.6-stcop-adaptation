@@ -53,29 +53,45 @@ $gameDataDirectory = Join-Path $packageRoot "gamedata"
 New-Item -ItemType Directory -Path $gameDataDirectory -Force | Out-Null
 @"
 This folder is intentionally empty. No NetAnomaly or third-party game assets are included.
-Put a separate working copy of your game data here, or configure a dedicated writable workspace.
+Put a separate writable copy of editor-compatible Call of Pripyat data here.
 Do not point an editor session at a game checkout that you need to keep unchanged.
 "@ | Set-Content -LiteralPath (Join-Path $gameDataDirectory "README-ASSETS.txt") -Encoding utf8
 
 @"
 NetAnomaly SDK portable package
 
-Launch Start-LevelEditor.cmd. The Level Editor and utility executables are built from the
-IX-Ray SDK source. NetAnomaly Python tools are installed in plugins/netanomaly/ and are
-available through the Level Editor Plugins menu.
+Запуск редактора: Start-LevelEditor.cmd. Исполняемые файлы редактора и утилит собраны из
+исходников IX-Ray SDK. Инструменты NetAnomaly на Python находятся в plugins/netanomaly/.
 
-The archive contains no game assets. fs.ltx maps the editor to this package's own gamedata
-folder; it does not point into your NetAnomaly checkout. To edit game data, prepare a separate
-writable workspace and configure the filesystem paths for that workspace first.
+В архиве нет игровых данных. Перед запуском редактор проверяет наличие
+gamedata/shaders_xrlc.xr, gamedata/configs/defines.ltx и gamedata/configs/system.ltx.
+Поместите сюда отдельную рабочую копию совместимых данных Call of Pripyat. Не запускайте
+редактор напрямую на исходной папке NetAnomaly. Конфиги Anomaly/GAMMA могут быть несовместимы
+с редактором CoP и вызывать ошибки DLTX.
 
-The Python plugins can also be run directly with Python 3.9 or newer; see
-README-NetAnomaly-SDK.md for commands and behavior.
+Python-плагины можно запускать отдельно через Python 3.9 или новее. Команды и описание
+поведения см. в README-NetAnomaly-SDK.md.
 "@ | Set-Content -LiteralPath (Join-Path $packageRoot "README-QUICKSTART-RU.txt") -Encoding utf8
 
 @'
 @echo off
 setlocal
 cd /d "%~dp0"
+set "MISSING=0"
+for %%F in ("gamedata\shaders_xrlc.xr" "gamedata\configs\defines.ltx" "gamedata\configs\system.ltx") do (
+    if not exist "%%~F" (
+        echo Missing required editor data: %%~F
+        set "MISSING=1"
+    )
+)
+if "%MISSING%"=="1" (
+    echo.
+    echo Add a separate, writable copy of compatible Call of Pripyat editor data under this SDK's gamedata folder.
+    echo Keep the original game folder unchanged. Anomaly/GAMMA configuration sets may not be compatible with this editor.
+    echo.
+    pause
+    exit /b 2
+)
 start "" "%~dp0LevelEditor.exe"
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot "Start-LevelEditor.cmd") -Encoding ascii
 

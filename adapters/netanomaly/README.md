@@ -18,6 +18,20 @@ python .\room_package_check.py -room_file="D:\Game\gamedata\meshes\netcoop\perso
 python .\patch_stage_check.py -stage_root="D:\PatchStage"
 ```
 
+## Start the Level Editor
+
+The portable package does not include game data. `Start-LevelEditor.cmd` checks for
+`gamedata/shaders_xrlc.xr`, `gamedata/configs/defines.ltx`, and
+`gamedata/configs/system.ltx` before launching. Put a separate writable copy of
+editor-compatible Call of Pripyat data under the SDK's `gamedata/` directory. Do not
+point the editor at the original game checkout.
+
+The dialog saying that `gamedata\shaders_xrlc.xr` cannot be found means the file is absent
+from the SDK working copy. Copying that one file resolves this specific missing-file
+error, but a complete compatible data set is still required. The NetAnomaly GAMMA/Anomaly
+configuration set is not a stock CoP editor data set and can produce DLTX/configuration
+errors in this editor.
+
 For patch staging, the selected root must contain entries beneath `gamedata/`, `client/scripts/`, and/or `server/scripts/`. Shared `gamedata/` files count toward both client and server volume totals. This validator checks policy only; use the game's own release process to build and sign/protect an archive.
 
 ## Format notes from source inspection
