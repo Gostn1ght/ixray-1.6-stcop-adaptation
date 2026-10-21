@@ -48,6 +48,9 @@ void IGame_Persistent::OnAppDeactivate()
 
 void IGame_Persistent::OnAppStart()
 {
+	if (Device.IsEditorMode())
+		return;
+
 	Environment().load();
 }
 
