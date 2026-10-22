@@ -162,6 +162,20 @@ void CMainMenu::ReadTextureInfo()
 		{
 			_GetItem(itemsList.c_str(), i, single_item);
 			strcat(single_item, ".xml");
+
+			// CoP data lists the same files in [texture_desc] but keeps them in textures_descr (already parsed above)
+			string_path check_path;
+			xr_sprintf(check_path, "ui\\textures_descr\\%s", single_item);
+			if (FS.exist(_game_config_, check_path))
+				continue;
+
+			xr_sprintf(check_path, "ui\\%s", single_item);
+			if (!FS.exist(_game_config_, check_path))
+			{
+				Msg("! [texture_desc] file not found: %s", check_path);
+				continue;
+			}
+
 			CUITextureMaster::ParseShTexInfoLegacy(single_item);
 		}
 	}
