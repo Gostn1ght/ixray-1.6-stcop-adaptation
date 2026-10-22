@@ -124,6 +124,15 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* pCmdLin
 	UI->PushBegin(GContentView);
 	splash::SetProgressStatus(100, "Finalizing");
 	splash::Close();
+
+	// -scene <name.level>: open a scene from $maps$ right after startup
+	if (strstr(Core.Params, "-scene ")) {
+		string_path scene_name;
+		sscanf(strstr(Core.Params, "-scene ") + 7, "%[^ ] ", scene_name);
+		string_path scene_path;
+		FS.update_path(scene_path, _maps_, scene_name);
+		ExecCommand(COMMAND_LOAD, xr_string(scene_path));
+	}
 	while (!NeedExit)
 	{
 		SDL_Event Event;
