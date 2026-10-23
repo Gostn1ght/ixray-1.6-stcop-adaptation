@@ -450,7 +450,15 @@ void CEnvDescriptor::load	(CEnvironment& environment, CInifile& config, const ch
 	
 	float sun_altitude = 0.f;
 	float sun_longitude = 0.f;
-	if (config.line_exist(identifier, "sun_altitude"))
+	const bool has_altitude = config.line_exist(identifier, "sun_altitude");
+	const bool has_longitude = config.line_exist(identifier, "sun_longitude");
+	if (has_altitude != has_longitude)
+	{
+		// Anomaly-based weathers take the sun from sun_positions.ltx and may keep half a pair here
+		Msg("! Weather [%s] in '%s' has only one of sun_altitude/sun_longitude, ignoring it", identifier, config.fname());
+	}
+
+	if (has_altitude && has_longitude)
 	{
 		sun_altitude = config.r_float(identifier, "sun_altitude");
 		sun_longitude = config.r_float(identifier, "sun_longitude");
