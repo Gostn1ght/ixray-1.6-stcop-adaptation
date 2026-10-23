@@ -71,9 +71,9 @@ namespace
 			{
 				// Weight maps are only built for objects with bones, so the plain
 				// mesh path of xr_ogf yields static geometry once the bones are gone
-				delete_elements(ogf->bones());
-				delete_elements(ogf->motions());
-				delete_elements(ogf->partitions());
+				clear_container(ogf->bones());
+				clear_container(ogf->motions());
+				clear_container(ogf->partitions());
 				ogf->xr_ogf::to_object();
 				ogf->flags() = EOF_STATIC;
 			}
