@@ -41,13 +41,12 @@ void verify_if_thread_is_running()
 	VERIFY2(g_pScriptEngine->current_thread(), "coroutine.yield() is called outside the LUA thread!");
 }
 
+bool IsEditorMode();
+
+// xrScripts is one module for the game and the editors, so ask the device instead of the build flags
 bool is_editor()
 {
-#ifdef XRGAME_EXPORTS
-	return		(false);
-#else
-	return		(true);
-#endif
+	return IsEditorMode();
 }
 
 #ifdef XRGAME_EXPORTS
