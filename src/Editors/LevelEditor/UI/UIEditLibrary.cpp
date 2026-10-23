@@ -220,6 +220,24 @@ void UIEditLibrary::DrawObjects()
 		ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 }
 
+static void MakeObjectLOD(CEditableObject* O, bool bHighQuality)
+{
+	bool bLod = O->m_objectFlags.is(CEditableObject::eoUsingLOD);
+	O->m_objectFlags.set(CEditableObject::eoUsingLOD, false);
+	xr_string tex_name;
+	tex_name = EFS.ChangeFileExt(O->GetName(), "");
+
+	string_path tmp;
+	strcpy(tmp, tex_name.c_str());
+	_ChangeSymbol(tmp, '\\', '_');
+	tex_name = xr_string("lod_") + tmp;
+	tex_name = ImageLib.UpdateFileName(tex_name);
+	ImageLib.CreateLODTexture(O, tex_name.c_str(), LOD_IMAGE_SIZE, LOD_IMAGE_SIZE, LOD_SAMPLE_COUNT, xr_chrono_to_time_t(std::chrono::system_clock::now()), bHighQuality ? 4 /*7*/ : 1);
+	O->OnDeviceDestroy();
+	O->m_objectFlags.set(CEditableObject::eoUsingLOD, bLod);
+	ELog.Msg(mtInformation, "+ LOD for object '%s' successfully created.", O->GetName());
+}
+
 void UIEditLibrary::GenerateLOD(const RStringVec& props, bool bHighQuality)
 {
 	u32 lodsCnt = 0;
@@ -238,20 +256,7 @@ void UIEditLibrary::GenerateLOD(const RStringVec& props, bool bHighQuality)
 		if (O && O->IsMUStatic())
 		{
 			pb->Inc(O->GetName());
-			bool bLod = O->m_objectFlags.is(CEditableObject::eoUsingLOD);
-			O->m_objectFlags.set(CEditableObject::eoUsingLOD, false);
-			xr_string tex_name;
-			tex_name = EFS.ChangeFileExt(O->GetName(), "");
-
-			string_path tmp;
-			strcpy(tmp, tex_name.c_str());
-			_ChangeSymbol(tmp, '\\', '_');
-			tex_name = xr_string("lod_") + tmp;
-			tex_name = ImageLib.UpdateFileName(tex_name);
-			ImageLib.CreateLODTexture(O, tex_name.c_str(), LOD_IMAGE_SIZE, LOD_IMAGE_SIZE, LOD_SAMPLE_COUNT, xr_chrono_to_time_t(std::chrono::system_clock::now()), bHighQuality ? 4 /*7*/ : 1);
-			O->OnDeviceDestroy();
-			O->m_objectFlags.set(CEditableObject::eoUsingLOD, bLod);
-			ELog.Msg(mtInformation, "+ LOD for object '%s' successfully created.", O->GetName());
+			MakeObjectLOD(O, bHighQuality);
 			lodsCnt++;
 		}
 		else
@@ -267,6 +272,39 @@ void UIEditLibrary::GenerateLOD(const RStringVec& props, bool bHighQuality)
 
 	if (lodsCnt)
 		ELog.DlgMsg(mtInformation, "+ '%u' LOD's succesfully created.", lodsCnt);
+}
+
+u32 UIEditLibrary::MakeLODsInFolder(const char* folder, bool bHighQuality)
+{
+	string_path mask;
+	xr_sprintf(mask, "%s\\*.object", folder);
+
+	FS_FileSet files;
+	FS.file_list(files, _objects_, FS_ListFiles | FS_ClampExt, mask);
+
+	u32 lodsCnt = 0;
+	SPBItem* pb = UI->ProgressStart(files.size(), "Making LOD");
+
+	for (const FS_File& file : files)
+	{
+		pb->Inc(file.name.c_str());
+
+		CEditableObject* O = Lib.CreateEditObject(file.name.c_str());
+		if (!O)
+			continue;
+
+		if (O->IsMUStatic())
+		{
+			MakeObjectLOD(O, bHighQuality);
+			lodsCnt++;
+		}
+
+		Lib.RemoveEditObject(O);
+	}
+
+	UI->ProgressEnd(pb);
+	ELog.Msg(mtInformation, "+ '%u' LOD's created in '%s'.", lodsCnt, folder);
+	return lodsCnt;
 }
 
 static xr_task_group LODTask;

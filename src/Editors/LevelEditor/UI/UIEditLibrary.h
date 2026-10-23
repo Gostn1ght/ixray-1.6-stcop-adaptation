@@ -11,6 +11,8 @@ public:
 	static void Show();
 	static void Close();
 	static void OnRender();
+	// Batch "Make LOD" for every MU object in a library folder (e.g. "levels\\l01_escape")
+	static u32 MakeLODsInFolder(const char* folder, bool bHighQuality);
 
 	ref_texture m_RealTexture;
 

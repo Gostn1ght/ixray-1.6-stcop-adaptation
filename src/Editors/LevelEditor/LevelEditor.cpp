@@ -7,6 +7,7 @@
 
 #include "Editor/Utils/ContentView.h"
 #include "Editor/Scene/LEPhysics.h"
+#include "UI/UIEditLibrary.h"
 
 #include "../../xrPlay/Splash.h"
 
@@ -124,6 +125,13 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* pCmdLin
 	UI->PushBegin(GContentView);
 	splash::SetProgressStatus(100, "Finalizing");
 	splash::Close();
+
+	// -make_lods <library folder>: batch "Make LOD (HQ)" for the folder's MU objects
+	if (strstr(Core.Params, "-make_lods ")) {
+		string_path lod_folder;
+		sscanf(strstr(Core.Params, "-make_lods ") + 11, "%[^ ] ", lod_folder);
+		UIEditLibrary::MakeLODsInFolder(lod_folder, true);
+	}
 
 	// -scene <name.level>: open a scene from $maps$ right after startup
 	if (strstr(Core.Params, "-scene ")) {
