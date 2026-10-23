@@ -58,27 +58,9 @@ void CDetailManager::hw_Load()
 	u32			vSize		= sizeof(vertHW);
 	Msg("* [DETAILS] %d v(%d), %d p",dwVerts,vSize,dwIndices/3);
 
-
-	// Determine POOL & USAGE
-	u32 dwUsage		=	D3DUSAGE_WRITEONLY;
-
-	// Create VB/IB
-	RHIBufferDesc vbDesc = {};
-	vbDesc.Size = dwVerts * vSize;
-	vbDesc.Type = ERHI_BUFFER_TYPE::VERTEX;
-	vbDesc.Usage = ERHI_USAGE::USAGE_DEFAULT; // или USAGE_DYNAMIC по необходимости
-	vbDesc.CPUAccessFlags = 0;
-
-	RHIBufferDesc ibDesc = {};
-	ibDesc.Size = dwIndices * 2;
-	ibDesc.Type = ERHI_BUFFER_TYPE::INDEX;
-	ibDesc.Usage = ERHI_USAGE::USAGE_DEFAULT; // или USAGE_DYNAMIC
-	ibDesc.CPUAccessFlags = 0;
-
-	// создаём буферы через RHI
-	IRHIBuffer* hw_VB = GRHI->CreateBuffer(vbDesc, nullptr);
-	IRHIBuffer* hw_IB = GRHI->CreateBuffer(ibDesc, nullptr);
-
+	// A scene without detail models (e.g. a fresh editor scene) has nothing to upload
+	if (!dwVerts || !dwIndices)
+		return;
 
 	Msg("* [DETAILS] Batch(%d), VB(%dK), IB(%dK)", hw_BatchSize, (dwVerts * vSize) / 1024, (dwIndices * 2) / 1024);
 
@@ -162,6 +144,9 @@ void CDetailManager::hw_Unload()
 void CDetailManager::hw_Render(light*L)
 {
 	PROF_EVENT("CDetailManager::hw_Render");
+	if (!hw_VB)
+		return;
+
 	GRHI->StateManager->SetCullMode(ERHI_CULLMODE::NONE);
 	RCache.set_xform_world	(Fidentity);
 	// Setup geometry and DMA

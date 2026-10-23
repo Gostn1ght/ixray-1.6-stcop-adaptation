@@ -144,8 +144,8 @@ public:
 	void							hw_Render_dump	(const Fvector4 &wave, const Fvector4 &wind, const Fvector4& wave_old, const Fvector4& wind_old, u32 var_id, u32 lod_id, light*L=NULL);
 #else //USE_DX11
 	ref_geom						hw_Geom;
-	IRHIBuffer*						hw_VB;
-	IRHIBuffer*						hw_IB;
+	IRHIBuffer*						hw_VB = nullptr;
+	IRHIBuffer*						hw_IB = nullptr;
 	ref_constant					hwc_consts;
 	ref_constant					hwc_wave;
 	ref_constant					hwc_wind;
