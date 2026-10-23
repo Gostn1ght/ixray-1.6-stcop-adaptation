@@ -599,7 +599,7 @@ void CTerrainTool::Render()
 		for (int i = 0; i <= segments; ++i)
 		{
 			const float a = PI_MUL_2 * float(i) / float(segments);
-			ring[i].set(m_Cursor.x + BrushRadius * _cos(a), 0.f, m_Cursor.z + BrushRadius * _sin(a));
+			ring[i].set(m_Cursor.x + BrushRadius * std::cos(a), 0.f, m_Cursor.z + BrushRadius * std::sin(a));
 			ring[i].y = Data.HeightAt(ring[i].x, ring[i].z) + 0.15f;
 		}
 		DU_impl.DrawPrimitiveL(ERHI_PRIMITIVE_TOPOLOGY::LINE_STRIP, segments, ring, segments + 1, 0xffffff00, false, false);
