@@ -22,6 +22,7 @@ namespace
 		ImGui::DockBuilderDockWindow("Terrain", left);
 		ImGui::DockBuilderDockWindow("Render##0", center);
 		ImGui::DockBuilderDockWindow("Log", bottom);
+		ImGui::DockBuilderDockWindow("Error Collector", bottom);
 		ImGui::DockBuilderFinish(dockspace);
 	}
 }

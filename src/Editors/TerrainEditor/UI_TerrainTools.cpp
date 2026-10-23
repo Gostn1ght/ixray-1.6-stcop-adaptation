@@ -40,6 +40,9 @@ bool CTerrainTool::OnCreate()
 {
 	m_bReady = true;
 	SetAction(etaSelect);
+
+	// The editor grid lies in the y = 0 plane of a new terrain and flickers through it
+	psDeviceFlags.set(rsDrawGrid, false);
 	NewTerrain();
 	m_bModified = false;
 	return true;
