@@ -1,23 +1,34 @@
 // xrOGFConverter: turns compiled game models (.ogf) back into SDK library objects (.object)
 // so props of the game can be placed as static objects in the Level Editor.
 //
-//   xrOGFConverter <model.ogf | folder> <output folder> [-skeletal]
+//   xrOGFConverter <model.ogf | folder> <output folder> [-skeletal] [-static] [-mu]
 //
-// A folder is converted recursively and the relative layout is kept. Skeletal models
-// (characters, physics props with bones) are skipped unless -skeletal is given, because
-// the Level Editor places them through spawn elements rather than as static geometry.
+// A folder is converted recursively and the relative layout is kept.
+//   -skeletal  keep skeletal models as they are (bones, weights, motions)
+//   -static    strip the bones of skeletal props and build a plain static mesh,
+//              the usual way to get physics props of the game into the static library
+//   -mu        mark objects as Multiple Usage (instanced props with LODs)
+// Without -skeletal or -static, skeletal models are skipped.
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <string>
 
 #include "xr_ogf.h"
+#include "xr_utils.h"
 
 namespace fs = std::filesystem;
 using namespace xray_re;
 
 namespace
 {
+	struct SOptions
+	{
+		bool keep_skeletal = false;
+		bool make_static = false;
+		bool multiple_usage = false;
+	};
+
 	struct SStats
 	{
 		unsigned converted = 0;
@@ -25,7 +36,7 @@ namespace
 		unsigned failed = 0;
 	};
 
-	bool ConvertOne(const fs::path& src, const fs::path& dst, bool include_skeletal, SStats& stats)
+	bool ConvertOne(const fs::path& src, const fs::path& dst, const SOptions& options, SStats& stats)
 	{
 		xr_ogf* ogf = nullptr;
 		try
@@ -44,7 +55,8 @@ namespace
 			return false;
 		}
 
-		if (ogf->skeletal() && !include_skeletal)
+		const bool skeletal = ogf->skeletal();
+		if (skeletal && !options.keep_skeletal && !options.make_static)
 		{
 			std::printf("- skip skeletal %s\n", src.string().c_str());
 			++stats.skipped;
@@ -55,7 +67,24 @@ namespace
 		bool ok = false;
 		try
 		{
-			ogf->to_object();
+			if (skeletal && options.make_static)
+			{
+				// Weight maps are only built for objects with bones, so the plain
+				// mesh path of xr_ogf yields static geometry once the bones are gone
+				delete_elements(ogf->bones());
+				delete_elements(ogf->motions());
+				delete_elements(ogf->partitions());
+				ogf->xr_ogf::to_object();
+				ogf->flags() = EOF_STATIC;
+			}
+			else
+			{
+				ogf->to_object();
+			}
+
+			if (options.multiple_usage && !(ogf->flags() & EOF_DYNAMIC))
+				ogf->flags() = EOF_MULTIPLE_USAGE;
+
 			std::error_code ec;
 			fs::create_directories(dst.parent_path(), ec);
 			ok = ogf->save_object(dst.string().c_str());
@@ -84,16 +113,22 @@ int main(int argc, char* argv[])
 {
 	if (argc < 3)
 	{
-		std::printf("usage: xrOGFConverter <model.ogf | folder> <output folder> [-skeletal]\n");
+		std::printf("usage: xrOGFConverter <model.ogf | folder> <output folder> [-skeletal] [-static] [-mu]\n");
 		return 1;
 	}
 
 	const fs::path input = argv[1];
 	const fs::path output = argv[2];
-	bool include_skeletal = false;
+	SOptions options;
 	for (int i = 3; i < argc; ++i)
+	{
 		if (0 == std::strcmp(argv[i], "-skeletal"))
-			include_skeletal = true;
+			options.keep_skeletal = true;
+		else if (0 == std::strcmp(argv[i], "-static"))
+			options.make_static = true;
+		else if (0 == std::strcmp(argv[i], "-mu"))
+			options.multiple_usage = true;
+	}
 
 	SStats stats;
 	std::error_code ec;
@@ -106,14 +141,14 @@ int main(int argc, char* argv[])
 
 			fs::path dst = output / fs::relative(entry.path(), input, ec);
 			dst.replace_extension(".object");
-			ConvertOne(entry.path(), dst, include_skeletal, stats);
+			ConvertOne(entry.path(), dst, options, stats);
 		}
 	}
 	else
 	{
 		fs::path dst = output / input.filename();
 		dst.replace_extension(".object");
-		ConvertOne(input, dst, include_skeletal, stats);
+		ConvertOne(input, dst, options, stats);
 	}
 
 	std::printf("converted %u, skipped %u, failed %u\n", stats.converted, stats.skipped, stats.failed);
