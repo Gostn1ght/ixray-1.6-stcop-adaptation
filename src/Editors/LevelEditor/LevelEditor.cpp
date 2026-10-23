@@ -23,6 +23,63 @@
 ECORE_API extern bool bIsLevelEditor;
 void DragDrop(const xr_string&, int);
 
+// Command line actions of the NetAnomaly SDK: -make_lods, -scene, -add_object
+static void RunStartupCommands()
+{
+	// -make_lods <library folder>: batch "Make LOD (HQ)" for the folder's MU objects
+	if (strstr(Core.Params, "-make_lods ")) {
+		string_path lod_folder;
+		sscanf(strstr(Core.Params, "-make_lods ") + 11, "%[^ ] ", lod_folder);
+		UIEditLibrary::MakeLODsInFolder(lod_folder, true);
+	}
+
+	// -scene <name.level>: open a scene from $maps$ right after startup
+	string_path scene_path = {};
+	if (strstr(Core.Params, "-scene ")) {
+		string_path scene_name;
+		sscanf(strstr(Core.Params, "-scene ") + 7, "%[^ ] ", scene_name);
+		FS.update_path(scene_path, _maps_, scene_name);
+		if (FS.exist(scene_path))
+			ExecCommand(COMMAND_LOAD, xr_string(scene_path));
+	}
+
+	// -add_object <library object>: put the object at the origin (once) and save the -scene file,
+	// used by the Terrain Editor to hand over an exported terrain
+	if (strstr(Core.Params, "-add_object ")) {
+		string_path object_ref;
+		sscanf(strstr(Core.Params, "-add_object ") + 12, "%[^ ] ", object_ref);
+		LUI->LoaderEvent.wait();
+
+		bool present = false;
+		for (CCustomObject* O : Scene->ListObj(OBJCLASS_SCENEOBJECT))
+		{
+			const char* ref = O->RefName();
+			if (ref && 0 == xr_strcmp(ref, object_ref))
+				present = true;
+		}
+
+		if (!present)
+		{
+			string256 object_name;
+			Scene->GenObjectName(OBJCLASS_SCENEOBJECT, object_name, object_ref);
+			CSceneObject* obj = new CSceneObject(nullptr, object_name);
+			obj->SetReference(object_ref);
+			if (obj->Valid())
+			{
+				obj->SetLoadedState();
+				Scene->AppendObject(obj);
+				if (scene_path[0])
+					ExecCommand(COMMAND_SAVE, xr_string(scene_path), 0);
+			}
+			else
+			{
+				ELog.DlgMsg(mtError, "Can't add object '%s' to the scene", object_ref);
+				xr_delete(obj);
+			}
+		}
+	}
+}
+
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* pCmdLine, int nCmdShow)
 {
 	bIsLevelEditor = true;
@@ -126,58 +183,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* pCmdLin
 	splash::SetProgressStatus(100, "Finalizing");
 	splash::Close();
 
-	// -make_lods <library folder>: batch "Make LOD (HQ)" for the folder's MU objects
-	if (strstr(Core.Params, "-make_lods ")) {
-		string_path lod_folder;
-		sscanf(strstr(Core.Params, "-make_lods ") + 11, "%[^ ] ", lod_folder);
-		UIEditLibrary::MakeLODsInFolder(lod_folder, true);
-	}
+	// Startup commands wait until the window has settled: a maximize/resize applied in the
+	// middle of a long command resets the device while a frame is still bound
+	int StartupFrames = 0;
 
-	// -scene <name.level>: open a scene from $maps$ right after startup
-	string_path scene_path = {};
-	if (strstr(Core.Params, "-scene ")) {
-		string_path scene_name;
-		sscanf(strstr(Core.Params, "-scene ") + 7, "%[^ ] ", scene_name);
-		FS.update_path(scene_path, _maps_, scene_name);
-		if (FS.exist(scene_path))
-			ExecCommand(COMMAND_LOAD, xr_string(scene_path));
-	}
-
-	// -add_object <library object>: put the object at the origin (once) and save the -scene file,
-	// used by the Terrain Editor to hand over an exported terrain
-	if (strstr(Core.Params, "-add_object ")) {
-		string_path object_ref;
-		sscanf(strstr(Core.Params, "-add_object ") + 12, "%[^ ] ", object_ref);
-		LUI->LoaderEvent.wait();
-
-		bool present = false;
-		for (CCustomObject* O : Scene->ListObj(OBJCLASS_SCENEOBJECT))
-		{
-			const char* ref = O->RefName();
-			if (ref && 0 == xr_strcmp(ref, object_ref))
-				present = true;
-		}
-
-		if (!present)
-		{
-			string256 object_name;
-			Scene->GenObjectName(OBJCLASS_SCENEOBJECT, object_name, object_ref);
-			CSceneObject* obj = new CSceneObject(nullptr, object_name);
-			obj->SetReference(object_ref);
-			if (obj->Valid())
-			{
-				obj->SetLoadedState();
-				Scene->AppendObject(obj);
-				if (scene_path[0])
-					ExecCommand(COMMAND_SAVE, xr_string(scene_path), 0);
-			}
-			else
-			{
-				ELog.DlgMsg(mtError, "Can't add object '%s' to the scene", object_ref);
-				xr_delete(obj);
-			}
-		}
-	}
 	while (!NeedExit)
 	{
 		SDL_Event Event;
@@ -289,6 +298,12 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* pCmdLin
 		}
 
 		MainForm->Frame();
+
+		if (StartupFrames >= 0 && ++StartupFrames == 10)
+		{
+			StartupFrames = -1;
+			RunStartupCommands();
+		}
 
 		if (g_pGamePersistent)
 			g_pGamePersistent->UpdateParticles();

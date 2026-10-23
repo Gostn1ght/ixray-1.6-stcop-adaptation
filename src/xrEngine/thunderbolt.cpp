@@ -55,8 +55,9 @@ void SThunderboltDesc::load						(CInifile& pIni, shared_str const& sect)
 	create_center_gradient		(pIni, sect);
 
 	name						= sect;
-	color_anim					= LALib.FindItem (pIni.r_string ( sect,"color_anim" ));
-	VERIFY						(color_anim);
+	const char* color_anim_name	= pIni.r_string(sect, "color_anim");
+	color_anim					= LALib.FindItem (color_anim_name);
+	R_ASSERT4					(color_anim, "Thunderbolt light animation not found in lanims.xr", color_anim_name, sect.c_str());
 	color_anim->fFPS			= (float)color_anim->iFrameCount;
 
     // models
