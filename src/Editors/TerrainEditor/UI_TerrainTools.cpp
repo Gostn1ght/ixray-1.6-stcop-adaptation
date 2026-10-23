@@ -442,8 +442,15 @@ void CTerrainTool::ZoomObject(bool bSelOnly)
 {
 	Fbox box;
 	Data.GetBox(box);
-	if (box.is_valid())
-		UI->CurrentView().m_Camera.ZoomExtents(box);
+	if (!box.is_valid())
+		return;
+
+	// Look down at the terrain at an angle; a level camera sees a flat terrain edge-on
+	CUI_Camera& camera = UI->CurrentView().m_Camera;
+	Fvector hpb;
+	hpb.set(0.f, -0.8f, 0.f);
+	camera.Set(hpb, camera.GetPosition());
+	camera.ZoomExtents(box);
 }
 
 CCommandVar CTerrainTool::CommandSave(CCommandVar p1, CCommandVar p2)

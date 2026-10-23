@@ -1,6 +1,30 @@
 #include "stdafx.h"
+#include "imgui_internal.h"
 
 UIMainForm* MainForm = nullptr;
+
+namespace
+{
+	// First run without a saved layout: terrain panel on the left, viewport in the middle, log below
+	void SetupDefaultLayout()
+	{
+		if (ImGui::FindWindowSettingsByID(ImHashStr("Terrain")))
+			return;
+
+		const ImGuiID dockspace = ImHashStr("MyDockspace", 0, ImHashStr("MyDockspace"));
+		ImGuiDockNode* root = ImGui::DockBuilderGetNode(dockspace);
+		if (!root || root->IsSplitNode())
+			return;
+
+		ImGuiID left = 0, rest = 0, bottom = 0, center = 0;
+		ImGui::DockBuilderSplitNode(dockspace, ImGuiDir_Left, 0.24f, &left, &rest);
+		ImGui::DockBuilderSplitNode(rest, ImGuiDir_Down, 0.2f, &bottom, &center);
+		ImGui::DockBuilderDockWindow("Terrain", left);
+		ImGui::DockBuilderDockWindow("Render##0", center);
+		ImGui::DockBuilderDockWindow("Log", bottom);
+		ImGui::DockBuilderFinish(dockspace);
+	}
+}
 
 UIMainForm::UIMainForm()
 {
@@ -28,6 +52,13 @@ UIMainForm::~UIMainForm()
 
 void UIMainForm::Draw()
 {
+	static bool layout_checked = false;
+	if (!layout_checked)
+	{
+		layout_checked = true;
+		SetupDefaultLayout();
+	}
+
 	m_MainMenu->Draw();
 	m_LeftBar->Draw();
 	m_Render->Draw();
