@@ -134,12 +134,49 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* pCmdLin
 	}
 
 	// -scene <name.level>: open a scene from $maps$ right after startup
+	string_path scene_path = {};
 	if (strstr(Core.Params, "-scene ")) {
 		string_path scene_name;
 		sscanf(strstr(Core.Params, "-scene ") + 7, "%[^ ] ", scene_name);
-		string_path scene_path;
 		FS.update_path(scene_path, _maps_, scene_name);
-		ExecCommand(COMMAND_LOAD, xr_string(scene_path));
+		if (FS.exist(scene_path))
+			ExecCommand(COMMAND_LOAD, xr_string(scene_path));
+	}
+
+	// -add_object <library object>: put the object at the origin (once) and save the -scene file,
+	// used by the Terrain Editor to hand over an exported terrain
+	if (strstr(Core.Params, "-add_object ")) {
+		string_path object_ref;
+		sscanf(strstr(Core.Params, "-add_object ") + 12, "%[^ ] ", object_ref);
+		LUI->LoaderEvent.wait();
+
+		bool present = false;
+		for (CCustomObject* O : Scene->ListObj(OBJCLASS_SCENEOBJECT))
+		{
+			const char* ref = O->RefName();
+			if (ref && 0 == xr_strcmp(ref, object_ref))
+				present = true;
+		}
+
+		if (!present)
+		{
+			string256 object_name;
+			Scene->GenObjectName(OBJCLASS_SCENEOBJECT, object_name, object_ref);
+			CSceneObject* obj = new CSceneObject(nullptr, object_name);
+			obj->SetReference(object_ref);
+			if (obj->Valid())
+			{
+				obj->SetLoadedState();
+				Scene->AppendObject(obj);
+				if (scene_path[0])
+					ExecCommand(COMMAND_SAVE, xr_string(scene_path), 0);
+			}
+			else
+			{
+				ELog.DlgMsg(mtError, "Can't add object '%s' to the scene", object_ref);
+				xr_delete(obj);
+			}
+		}
 	}
 	while (!NeedExit)
 	{

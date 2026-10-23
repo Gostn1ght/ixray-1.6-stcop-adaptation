@@ -16,6 +16,7 @@ if (IXRAY_EDITORS)
     add_subdirectory("ActorEditor")
     add_subdirectory("ShaderEditor")
     add_subdirectory("LevelEditor")
+    add_subdirectory("TerrainEditor")
 endif()
 
 # Groups
@@ -31,6 +32,7 @@ if (IXRAY_EDITORS)
     set_target_properties(ActorEditor PROPERTIES ${IXRAY_FOLDER_EDITORS})
     set_target_properties(ShaderEditor PROPERTIES ${IXRAY_FOLDER_EDITORS})
     set_target_properties(LevelEditor PROPERTIES ${IXRAY_FOLDER_EDITORS})
+    set_target_properties(TerrainEditor PROPERTIES ${IXRAY_FOLDER_EDITORS})
 
     if (NOT IXRAY_UTILS)
         set_target_properties(xrSE_Factory PROPERTIES ${IXRAY_FOLDER_EDITOR_EXCORE})
