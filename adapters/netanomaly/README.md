@@ -18,6 +18,23 @@ python .\room_package_check.py -room_file="D:\Game\gamedata\meshes\netcoop\perso
 python .\patch_stage_check.py -stage_root="D:\PatchStage"
 ```
 
+## SDK tools added by this fork
+
+- **Level Editor command line.** `-scene <name.level>` opens a scene from `rawdata\levels`;
+  `-make_lods <library folder>` runs "Make LOD (HQ)" for every Multiple Usage object of the
+  folder (for example `levels\l42_predbannik`); `-add_object <library object>` places the object
+  at the origin once and saves the `-scene` file. They run after the first frames, when the
+  window has its final size.
+- **TerrainEditor.exe.** Sculpts and paints a terrain grid (raise, lower, smooth, flatten,
+  noise, four paintable layers, undo), saves projects to `rawdata\terrain`, exports the terrain
+  object and its base/mask textures and opens the result in the Level Editor. See
+  [TERRAIN_EDITOR.md](TERRAIN_EDITOR.md).
+- **xrOGFConverter.exe.** Converts game models (`.ogf`) into library objects (`.object`):
+  `xrOGFConverter <model.ogf | folder> <output folder> [-static] [-mu] [-skeletal]`.
+  `-static` strips the bones of physics props so they can be placed as static geometry, `-mu`
+  marks them Multiple Usage. Example for the GAMMA props:
+  `xrOGFConverter J:\unpacked\meshes\dynamics\box rawdata\objects\gamma\box -static -mu`.
+
 ## Start the Level Editor
 
 The portable package does not include game data. `Start-LevelEditor.cmd` checks for
